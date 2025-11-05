@@ -1,0 +1,8 @@
+name: WMtask
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - psychopy
+  - ipykernel
+prefix: C:\Users\nuttida-lab\.conda\envs\WMtask
