@@ -12,7 +12,7 @@ from psychopy.hardware import keyboard
 
 from get_instruction_text import get_instruction_text
 from get_correct_responses import get_correct_responses
-# from init_cedrus import init_cedrus  # Commented out - using keyboard only
+from init_cedrus import init_cedrus
 
 def init_task():
     """
@@ -31,8 +31,7 @@ def init_task():
     # Get user input
     sub_id = input('Participant number (PxxCS):\n')
     eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
-    # use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))  # Commented out - using keyboard only
-    use_cedrus = 0  # Always use keyboard (arrow keys)
+    use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
     debug = int(input('Debug mode? 0=no, 1=yes:\n'))
     
     # Uncomment for quick testing:
@@ -73,7 +72,8 @@ def init_task():
     # Which of the two axes belonging to each category will be used in each trial
     trial_categories = [0, 1, 2, 3]
     trial_axis = [0, 1]
-    anti_task = [0, 1]
+    # anti_task = [0, 1]
+    anti_task = [0, 0] # getting rid of the anti-task
     prompt_variant = [0, 1]
     equivalent_variant_id = [0, 1]
     
@@ -245,17 +245,16 @@ def init_task():
     task_struct['correct_responses'] = get_correct_responses(task_struct)
     
     # Setting up input devices
-    # CEDRUS button box code commented out - using keyboard only
-    # if task_struct['use_cedrus']:
-    #     task_struct['handle'] = init_cedrus()
-    #     task_struct['left_key'] = 4
-    #     task_struct['right_key'] = 5
-    #     task_struct['confirm_key'] = 3
-    # else:
-    task_struct['handle'] = None
-    task_struct['left_key'] = 'left'  # Left arrow key
-    task_struct['right_key'] = 'right'  # Right arrow key
-    task_struct['confirm_key'] = 'space'
+    if task_struct['use_cedrus']:
+        task_struct['handle'] = init_cedrus()
+        task_struct['left_key'] = 4
+        task_struct['right_key'] = 5
+        task_struct['confirm_key'] = 3
+    else:
+        task_struct['handle'] = None
+        task_struct['left_key'] = 'left'  # Left arrow key
+        task_struct['right_key'] = 'right'  # Right arrow key
+        task_struct['confirm_key'] = 'space'
     
     task_struct['escape_key'] = 'q'
     task_struct['pause_key'] = 'p'

@@ -12,6 +12,7 @@ from send_ttl import send_ttl
 from set_marker_ids import *
 from intermission_screen import intermission_screen
 from get_instruction_text import get_instruction_text
+from get_motor_instruction_text import get_motor_instruction_text
 
 def run_session(task_struct, disp_struct):
     """
@@ -92,7 +93,7 @@ def run_session(task_struct, disp_struct):
         trial_struct['fixation1_flip'] = win.flip()
         core.wait(task_struct['fixation_time'])
         
-        # Presenting first instruction (if required)
+        # Presenting pre-stim instruction (if required)
         if task_struct['trial_conditions'][t_i] == 1:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
             # Cleaning screen
@@ -201,7 +202,7 @@ def run_session(task_struct, disp_struct):
         if not task_struct['debug']:
             send_ttl(task_struct, 'STIMULUS_OFF')
 
-        # Presenting second instruction (if required)
+        # Presenting retrocue instruction (if required)
         if task_struct['trial_conditions'][t_i] == 2:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
             # Cleaning screen
@@ -304,108 +305,107 @@ def run_session(task_struct, disp_struct):
         current_time = cue_time
         response_received = False
         
-        # CEDRUS button box code commented out - using keyboard only
-        # if task_struct['use_cedrus']:
-        #     # CEDRUS response box handling
-        #     handle = task_struct['handle']
-        #     if handle:
-        #         # Clear buffer
-        #         handle.reset_input_buffer()
-        #     
-        #     while current_time - cue_time < task_struct['response_time_max']:
-        #         if handle:
-        #             # Check CEDRUS button box
-        #             # Note: Actual implementation depends on CEDRUS API
-        #             # This is a placeholder
-        #             try:
-        #                 if handle.in_waiting > 0:
-        #                     data = handle.read(handle.in_waiting)
-        #                     # Parse CEDRUS response (button codes vary by device)
-        #                     # Placeholder: assuming button 4 = left, button 5 = right
-        #             except:
-        #                 pass
-        #         
-        #         # Also check keyboard as backup
-        #         keys = event.getKeys(keyList=[task_struct['left_key'], task_struct['right_key']], timeStamped=True)
-        #         if keys:
-        #             key, time = keys[0]
-        #             task_struct['response_time'][t_i] = time - cue_time
-        #             if key == task_struct['left_key']:
-        #                 task_struct['resp_key'][t_i] = 1
-        #                 if task_struct['eye_link_mode']:
-        #                     write_log_with_eyelink(task_struct, 'RESPONSE_LEFT', '')
-        #                 if not task_struct['debug']:
-        #                     send_ttl(task_struct, 'RESPONSE_LEFT')
-        #                 # Plotting grayed out selected text
-        #                 left_text_stim.color = 'gray'
-        #                 left_text_stim.draw()
-        #                 left_frame.draw()
-        #                 right_frame.draw()
-        #                 right_text_stim.draw()
-        #                 trial_struct['button_press_flip'] = win.flip()
-        #                 core.wait(task_struct['text_holdout_time'])
-        #                 response_received = True
-        #                 break
-        #             elif key == task_struct['right_key']:
-        #                 task_struct['resp_key'][t_i] = 2
-        #                 if task_struct['eye_link_mode']:
-        #                     write_log_with_eyelink(task_struct, 'RESPONSE_RIGHT', '')
-        #                 if not task_struct['debug']:
-        #                     send_ttl(task_struct, 'RESPONSE_RIGHT')
-        #                 # Plotting grayed out selected text
-        #                 right_text_stim.color = 'gray'
-        #                 left_frame.draw()
-        #                 right_frame.draw()
-        #                 left_text_stim.draw()
-        #                 right_text_stim.draw()
-        #                 trial_struct['button_press_flip'] = win.flip()
-        #                 core.wait(task_struct['text_holdout_time'])
-        #                 response_received = True
-        #                 break
-        #         
-        #         current_time = core.getTime()
-        # else:
-        # Keyboard response (using arrow keys)
-        event.clearEvents()
-        while current_time - cue_time < task_struct['response_time_max']:
-            keys = event.getKeys(keyList=[task_struct['left_key'], task_struct['right_key']], timeStamped=True)
-            if keys:
-                key, time = keys[0]
-                task_struct['response_time'][t_i] = time - cue_time
-                if key == task_struct['left_key']:
-                    task_struct['resp_key'][t_i] = 1
-                    if task_struct['eye_link_mode']:
-                        write_log_with_eyelink(task_struct, 'RESPONSE_LEFT', '')
-                    if not task_struct['debug']:
-                        send_ttl(task_struct, 'RESPONSE_LEFT')
-                    # Plotting grayed out selected text
-                    left_text_stim.color = 'gray'
-                    left_text_stim.draw()
-                    left_frame.draw()
-                    right_frame.draw()
-                    right_text_stim.draw()
-                    trial_struct['button_press_flip'] = win.flip()
-                    core.wait(task_struct['text_holdout_time'])
-                    response_received = True
-                    break
-                elif key == task_struct['right_key']:
-                    task_struct['resp_key'][t_i] = 2
-                    if task_struct['eye_link_mode']:
-                        write_log_with_eyelink(task_struct, 'RESPONSE_RIGHT', '')
-                    if not task_struct['debug']:
-                        send_ttl(task_struct, 'RESPONSE_RIGHT')
-                    # Plotting grayed out selected text
-                    right_text_stim.color = 'gray'
-                    left_frame.draw()
-                    right_frame.draw()
-                    left_text_stim.draw()
-                    right_text_stim.draw()
-                    trial_struct['button_press_flip'] = win.flip()
-                    core.wait(task_struct['text_holdout_time'])
-                    response_received = True
-                    break
+        if task_struct['use_cedrus']:
+            # CEDRUS response box handling
+            handle = task_struct['handle']
+            if handle:
+                # Clear buffer
+                handle.reset_input_buffer()
             
-            current_time = core.getTime()
+            while current_time - cue_time < task_struct['response_time_max']:
+                if handle:
+                    # Check CEDRUS button box
+                    # Note: Actual implementation depends on CEDRUS API
+                    # This is a placeholder
+                    try:
+                        if handle.in_waiting > 0:
+                            data = handle.read(handle.in_waiting)
+                            # Parse CEDRUS response (button codes vary by device)
+                            # Placeholder: assuming button 4 = left, button 5 = right
+                    except:
+                        pass
+                
+                # Also check keyboard as backup
+                keys = event.getKeys(keyList=[task_struct['left_key'], task_struct['right_key']], timeStamped=True)
+                if keys:
+                    key, time = keys[0]
+                    task_struct['response_time'][t_i] = time - cue_time
+                    if key == task_struct['left_key']:
+                        task_struct['resp_key'][t_i] = 1
+                        if task_struct['eye_link_mode']:
+                            write_log_with_eyelink(task_struct, 'RESPONSE_LEFT', '')
+                        if not task_struct['debug']:
+                            send_ttl(task_struct, 'RESPONSE_LEFT')
+                        # Plotting grayed out selected text
+                        left_text_stim.color = 'gray'
+                        left_text_stim.draw()
+                        left_frame.draw()
+                        right_frame.draw()
+                        right_text_stim.draw()
+                        trial_struct['button_press_flip'] = win.flip()
+                        core.wait(task_struct['text_holdout_time'])
+                        response_received = True
+                        break
+                    elif key == task_struct['right_key']:
+                        task_struct['resp_key'][t_i] = 2
+                        if task_struct['eye_link_mode']:
+                            write_log_with_eyelink(task_struct, 'RESPONSE_RIGHT', '')
+                        if not task_struct['debug']:
+                            send_ttl(task_struct, 'RESPONSE_RIGHT')
+                        # Plotting grayed out selected text
+                        right_text_stim.color = 'gray'
+                        left_frame.draw()
+                        right_frame.draw()
+                        left_text_stim.draw()
+                        right_text_stim.draw()
+                        trial_struct['button_press_flip'] = win.flip()
+                        core.wait(task_struct['text_holdout_time'])
+                        response_received = True
+                        break
+                
+                current_time = core.getTime()
+        else:
+            # Keyboard response (using arrow keys)
+            event.clearEvents()
+            while current_time - cue_time < task_struct['response_time_max']:
+                keys = event.getKeys(keyList=[task_struct['left_key'], task_struct['right_key']], timeStamped=True)
+                if keys:
+                    key, time = keys[0]
+                    task_struct['response_time'][t_i] = time - cue_time
+                    if key == task_struct['left_key']:
+                        task_struct['resp_key'][t_i] = 1
+                        if task_struct['eye_link_mode']:
+                            write_log_with_eyelink(task_struct, 'RESPONSE_LEFT', '')
+                        if not task_struct['debug']:
+                            send_ttl(task_struct, 'RESPONSE_LEFT')
+                        # Plotting grayed out selected text
+                        left_text_stim.color = 'gray'
+                        left_text_stim.draw()
+                        left_frame.draw()
+                        right_frame.draw()
+                        right_text_stim.draw()
+                        trial_struct['button_press_flip'] = win.flip()
+                        core.wait(task_struct['text_holdout_time'])
+                        response_received = True
+                        break
+                    elif key == task_struct['right_key']:
+                        task_struct['resp_key'][t_i] = 2
+                        if task_struct['eye_link_mode']:
+                            write_log_with_eyelink(task_struct, 'RESPONSE_RIGHT', '')
+                        if not task_struct['debug']:
+                            send_ttl(task_struct, 'RESPONSE_RIGHT')
+                        # Plotting grayed out selected text
+                        right_text_stim.color = 'gray'
+                        left_frame.draw()
+                        right_frame.draw()
+                        left_text_stim.draw()
+                        right_text_stim.draw()
+                        trial_struct['button_press_flip'] = win.flip()
+                        core.wait(task_struct['text_holdout_time'])
+                        response_received = True
+                        break
+                
+                current_time = core.getTime()
         
         if task_struct['eye_link_mode']:
             write_log_with_eyelink(task_struct, 'STIMULUS_OFF', '')
@@ -454,6 +454,11 @@ def get_instruction_text_for_trial(task_struct, t_i):
         task_struct['prompt_variant'][t_i],
         task_struct['equivalent_variant_id'][t_i]
     )
+
+
+def get_motor_instruction_text_for_trial(task_struct, t_i):
+    """Helper function to get motor instruction text for a trial. """
+
 
 
 def write_log_with_eyelink(task_struct, event_name, message):
