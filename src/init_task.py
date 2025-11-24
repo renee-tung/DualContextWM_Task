@@ -10,10 +10,12 @@ from pathlib import Path
 from psychopy import visual, monitors, event
 from psychopy.hardware import keyboard
 
-from get_instruction_text import get_instruction_text
-from get_motor_instruction_text import get_motor_instruction_text
-from get_correct_responses import get_correct_responses
-from init_cedrus import init_cedrus
+from src.get_instruction_text import get_instruction_text
+from src.get_motor_instruction_text import get_motor_instruction_text
+from src.get_correct_responses import get_correct_responses
+from src.init_cedrus import init_cedrus
+
+import pdb
 
 def init_task():
     """
@@ -84,7 +86,8 @@ def init_task():
     result = np.column_stack([x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel(), x5.ravel(), x6.ravel()])
     n = result.shape[0]
     factor = n_trials // n
-    result = result * factor
+    # result = result * factor
+    result = np.repeat(result, factor, axis=0)
     if len(result) < n_trials:
         result = np.concatenate([result, result[:n_trials - len(result)]])
     
@@ -237,16 +240,18 @@ def init_task():
         'left_text': left_text,
         'right_text': right_text,
         'fixation_time': 1.0,
-        'instruction_time_min': 2.5,
-        'instruction_time_max': 4.0,
+        'instruction_time_min': 2.0,
+        'instruction_time_max': 2.5,
         'stim1_time': 1.0,
         'ISI': 2.0, # changed from 0.8
         'stim2_time': 1.0,
         'response_time_max': 3.0,
         'text_holdout_time': 0.5,
         'ITI': 1.0,
-        'instruction_time': np.full(n_trials, np.nan),
-        'response_time': np.full(n_trials, np.nan),
+        'instruction_time': np.full(n_trials, np.nan), # time spent on instruction 1 screen
+        'response_instruction_time': np.full(n_trials, np.nan), # time spent on response instruction screen
+        'response_time': np.full(n_trials, np.nan), # trial RTs
+        'slider_positions': [None] * n_trials,
         'trial_time': np.full(n_trials, np.nan),
         'resp_key': np.full(n_trials, np.nan),
         'complete_flag': 1,
@@ -286,24 +291,34 @@ def init_task():
     gray = [0.31, 0.31, 0.31]  # RGB equivalent of 80/255
     
     # Opening window
-    win = visual.Window(
-        size=screen_size,
-        fullscr=full_screen,
-        screen=0,
-        color=gray,
-        units='pix',
-        allowGUI=not full_screen
-    )
+    if screen_size is None:
+        win = visual.Window(
+            fullscr=full_screen,
+            screen=0,
+            color=gray,
+            units='pix',
+            allowGUI=not full_screen
+        )
+    else:
+        win = visual.Window(
+            size=screen_size,
+            fullscr=full_screen,
+            screen=0,
+            color=gray,
+            units='pix',
+            allowGUI=not full_screen
+        )
     
     # Getting screen center and dimensions
-    center_x = win.size[0] / 2
-    center_y = win.size[1] / 2
+    # Use window-centered coordinates (origin at 0,0) so stimuli are centered
+    center_x = 0
+    center_y = 0
     width = win.size[0]
     height = win.size[1]
-    
-    dx = width / 12
+
+    dx = width / 5  # originally 12; changed to move stimuli farther apart
     dy = height / 5
-    
+
     # Size of figures on screen, in pixels (4:3)
     stim_size = 250
     rew_width = 466
@@ -312,22 +327,23 @@ def init_task():
     pw = stim_size
     rw = rew_width
     rh = rew_height
-    
-    # Setting up stimuli presentation rectangles
-    # center top (1)
+
+    # Setting up stimuli presentation rectangles in centered coordinates
+    # vertical_rects: [left, bottom, right, top]
     vertical_rects = [
-        [center_x - pw/2, center_y - dy - ph/2, center_x + pw/2, center_y - dy + ph/2],
-        [center_x - pw/2, center_y + dy - ph/2, center_x + pw/2, center_y + dy + ph/2]
+        [-pw/2, dy - ph/2, pw/2, dy + ph/2],    # top
+        [-pw/2, -dy - ph/2, pw/2, -dy + ph/2]   # bottom
     ]
-    
-    # left center (1), right center (2), center (3)
+
+    # horizontal_rects: left, right, center
     horizontal_rects = [
-        [center_x - dx - pw/2, center_y - ph/2, center_x - dx + pw/2, center_y + ph/2],
-        [center_x + dx - pw/2, center_y - ph/2, center_x + dx + pw/2, center_y + ph/2],
-        [center_x - rw/2, center_y - rh/2, center_x + rw/2, center_y + rh/2]
+        [-dx - pw/2, -ph/2, -dx + pw/2, ph/2],  # left
+        [dx - pw/2, -ph/2, dx + pw/2, ph/2],     # right
+        [-rw/2, -rh/2, rw/2, rh/2]               # center
     ]
-    
-    reward_source_rect = [160, 0, 1120, 720]  # Portion of reward videos displayed
+
+    # reward_source_rect (kept as pixel box relative to top-left transformed to centered coords)
+    reward_source_rect = [-width/2 + 160, -height/2 + 0, -width/2 + 1120, -height/2 + 720]
     
     disp_struct['win'] = win
     disp_struct['screen_number'] = 0

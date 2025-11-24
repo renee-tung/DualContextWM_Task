@@ -9,7 +9,7 @@ from pathlib import Path
 from psychopy import visual, monitors, event
 from psychopy.hardware import keyboard
 
-from get_instruction_text import get_instruction_text
+from src.get_instruction_text import get_instruction_text
 # from init_cedrus import init_cedrus  # Commented out - using keyboard only
 
 def init_task_training():
@@ -265,14 +265,15 @@ def init_task_training():
         allowGUI=not full_screen
     )
     
-    center_x = win.size[0] / 2
-    center_y = win.size[1] / 2
+    # Use window-centered coordinates (origin at 0,0) so stimuli are centered
+    center_x = 0
+    center_y = 0
     width = win.size[0]
     height = win.size[1]
-    
+
     dx = width / 12
     dy = height / 5
-    
+
     stim_size = 250
     rew_width = 466
     rew_height = 350
@@ -280,19 +281,19 @@ def init_task_training():
     pw = stim_size
     rw = rew_width
     rh = rew_height
-    
+
     vertical_rects = [
-        [center_x - pw/2, center_y - dy - ph/2, center_x + pw/2, center_y - dy + ph/2],
-        [center_x - pw/2, center_y + dy - ph/2, center_x + pw/2, center_y + dy + ph/2]
+        [-pw/2, dy - ph/2, pw/2, dy + ph/2],    # top
+        [-pw/2, -dy - ph/2, pw/2, -dy + ph/2]   # bottom
     ]
-    
+
     horizontal_rects = [
-        [center_x - dx - pw/2, center_y - ph/2, center_x - dx + pw/2, center_y + ph/2],
-        [center_x + dx - pw/2, center_y - ph/2, center_x + dx + pw/2, center_y + ph/2],
-        [center_x - rw/2, center_y - rh/2, center_x + rw/2, center_y + rh/2]
+        [-dx - pw/2, -ph/2, -dx + pw/2, ph/2],  # left
+        [dx - pw/2, -ph/2, dx + pw/2, ph/2],     # right
+        [-rw/2, -rh/2, rw/2, rh/2]               # center
     ]
-    
-    reward_source_rect = [160, 0, 1120, 720]
+
+    reward_source_rect = [-width/2 + 160, -height/2 + 0, -width/2 + 1120, -height/2 + 720]
     
     disp_struct['win'] = win
     disp_struct['screen_number'] = 0

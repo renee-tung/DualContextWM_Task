@@ -7,10 +7,10 @@ from psychopy import visual, event, core
 from pathlib import Path
 import pickle
 
-from send_ttl import send_ttl
-from set_marker_ids import *
-from intermission_screen import intermission_screen
-from get_instruction_text import get_instruction_text
+from src.send_ttl import send_ttl
+from src.set_marker_ids import *
+from src.intermission_screen import intermission_screen
+from src.get_instruction_text import get_instruction_text
 
 def get_instruction_text_for_trial(task_struct, t_i):
     """Helper function to get instruction text for a trial."""
@@ -77,7 +77,7 @@ def run_session_training(task_struct, disp_struct):
         if keys:
             if task_struct['escape_key'] in keys:
                 task_struct['complete_flag'] = 0
-                from finish_experiment_training import finish_experiment_training
+                from src.finish_experiment_training import finish_experiment_training
                 finish_experiment_training(task_struct, disp_struct)
                 return task_struct, disp_struct
             

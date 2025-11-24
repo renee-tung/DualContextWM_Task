@@ -3,9 +3,9 @@ This function wraps up after the session, finishing the experiment.
 """
 
 import numpy as np
-from intermission_screen import intermission_screen
-from send_ttl import send_ttl
-from set_marker_ids import *
+from src.intermission_screen import intermission_screen
+from src.send_ttl import send_ttl
+from src.set_marker_ids import *
 
 def finish_experiment(task_struct, disp_struct):
     """

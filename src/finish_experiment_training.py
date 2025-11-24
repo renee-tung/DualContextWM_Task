@@ -2,9 +2,9 @@
 This function wraps up after the training session, finishing the experiment.
 """
 
-from intermission_screen import intermission_screen
-from send_ttl import send_ttl
-from set_marker_ids import *
+from src.intermission_screen import intermission_screen
+from src.send_ttl import send_ttl
+from src.set_marker_ids import *
 
 def finish_experiment_training(task_struct, disp_struct):
     """

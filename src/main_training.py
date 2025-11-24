@@ -14,15 +14,15 @@ from psychopy.iohub import launchHubServer
 from psychopy.iohub.client import ioHubConnection
 
 # Import local modules
-from init_task_training import init_task_training
-from run_session_training import run_session_training
-from finish_experiment_training import finish_experiment_training
-from set_marker_ids import set_marker_ids
-from send_ttl import send_ttl
-from open_logfile import open_logfile
-from config_io import config_io
-from eye_link_setup import eye_link_setup
-from terminate_experiment import terminate_experiment
+from src.init_task_training import init_task_training
+from src.run_session_training import run_session_training
+from src.finish_experiment_training import finish_experiment_training
+from src.set_marker_ids import set_marker_ids
+from src.send_ttl import send_ttl
+from src.open_logfile import open_logfile
+from src.config_io import config_io
+from src.eye_link_setup import eye_link_setup
+from src.terminate_experiment import terminate_experiment
 
 # Set up base folder
 basefolder = Path(__file__).parent.parent.parent
@@ -79,9 +79,9 @@ def main():
             print(f"Warning: Could not send initial EyeLink messages: {e}")
         
         # Write log entry
-        from finish_experiment_training import write_log_with_eyelink
+        from src.finish_experiment_training import write_log_with_eyelink
         write_log_with_eyelink({'fid_log': fid_log}, 'EXPERIMENT_ON_REAL', '')
-        
+
         task_struct['file_label'] = file_label
         task_struct['fid_log'] = fid_log
         task_struct['fname_log'] = fname_log

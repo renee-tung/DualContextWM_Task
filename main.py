@@ -26,9 +26,10 @@ from src.open_logfile import open_logfile
 from src.config_io import config_io
 from src.eye_link_setup import eye_link_setup
 from src.terminate_experiment import terminate_experiment
+from src.filter_picklable import filter_picklable
 
 # Set up base folder
-basefolder = Path(__file__).parent.parent.parent
+basefolder = Path(__file__).parent.parent#.parent
 task_code_folder = basefolder / 'WMVerbalInstructionTask' / 'src'
 os.chdir(task_code_folder)
 
@@ -40,8 +41,10 @@ def main():
     
     # Save initial task structure
     output_file = task_struct['output_folder'] / task_struct['file_name']
+
     with open(output_file.with_suffix('.pkl'), 'wb') as f:
-        pickle.dump({'task_struct': task_struct, 'disp_struct': disp_struct}, f)
+        pickle.dump({'task_struct': filter_picklable(task_struct, "task_struct"), 
+                     'disp_struct': filter_picklable(disp_struct, "disp_struct")}, f)
     
     # Set up TTL if not in debug mode
     if not task_struct['debug']:
@@ -99,10 +102,10 @@ def main():
     
     # Run the task
     task_struct, disp_struct = run_session(task_struct, disp_struct)
-    
     # Save data to file
     with open(output_file.with_suffix('.pkl'), 'ab') as f:
-        pickle.dump({'task_struct': task_struct, 'disp_struct': disp_struct}, f)
+        pickle.dump({'task_struct': filter_picklable(task_struct, "task_struct"), 
+                     'disp_struct': filter_picklable(disp_struct, "disp_struct")}, f)
     
     # Finishing up
     finish_experiment(task_struct, disp_struct)

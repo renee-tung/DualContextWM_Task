@@ -2,7 +2,7 @@
 Sends a TTL value via parallel port.
 """
 
-from set_marker_ids import *
+from src.set_marker_ids import *
 
 def send_ttl(task_struct, marker_name):
     """
