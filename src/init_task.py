@@ -276,7 +276,7 @@ def init_task():
         task_struct['handle'] = None
         task_struct['left_key'] = 'left'  # Left arrow key
         task_struct['right_key'] = 'right'  # Right arrow key
-        task_struct['confirm_key'] = 'space'
+        task_struct['confirm_key'] = 'space' # Space to submit slider
         task_struct['up_key'] = 'up'
         task_struct['down_key'] = 'down'
     

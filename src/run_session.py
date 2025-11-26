@@ -99,6 +99,8 @@ def run_session(task_struct, disp_struct):
         
         # Check control keys (escape/pause) using helper
         res = check_for_control_keys(task_struct, disp_struct)
+        if res == 'quit':
+            return task_struct, disp_struct
         
         # Presenting pre-stim instruction (if required)
         if task_struct['trial_conditions'][t_i] == 1:
@@ -121,22 +123,26 @@ def run_session(task_struct, disp_struct):
             if not task_struct['debug']:
                 send_ttl(task_struct, 'INSTRUCTION_ON')
             
-            # Wait for at least this amount of time
-            core.wait(task_struct['instruction_time_min'])
+            # Wait for fixed instruction time
+            core.wait(task_struct['instruction_time_max'])
+            instruction_end_time = core.getTime()
+
+            # # Wait for at least this amount of time
+            # core.wait(task_struct['instruction_time_min'])
             
-            # Wait more for key press or continue after another set interval
-            event.clearEvents()
-            keys = event.waitKeys(
-                keyList=['space'],
-                maxWait=task_struct['instruction_time_max'] - task_struct['instruction_time_min'],
-                timeStamped=True
-            )
-            if keys:
-                key, key_time = keys[0]
-                instruction_end_time = key_time
-            else:
-                # no keypress, use max time
-                instruction_end_time = core.getTime()
+            # # Wait more for key press or continue after another set interval
+            # event.clearEvents()
+            # keys = event.waitKeys(
+            #     keyList=['space'],
+            #     maxWait=task_struct['instruction_time_max'] - task_struct['instruction_time_min'],
+            #     timeStamped=True
+            # )
+            # if keys:
+            #     key, key_time = keys[0]
+            #     instruction_end_time = key_time
+            # else:
+            #     # no keypress, use max time
+            #     instruction_end_time = core.getTime()
             task_struct['instruction_time'][t_i] = instruction_end_time - instruction_onset
             
             if task_struct['eye_link_mode']:
@@ -255,22 +261,26 @@ def run_session(task_struct, disp_struct):
             
             if not task_struct['debug']:
                 send_ttl(task_struct, 'INSTRUCTION_ON')
+
+            # Wait for fixed instruction time
+            core.wait(task_struct['instruction_time_max'])
+            instruction_end_time = core.getTime()
             
-            # Wait for at least this amount of time
-            core.wait(task_struct['instruction_time_min'])
+            # # Wait for at least this amount of time
+            # core.wait(task_struct['instruction_time_min'])
             
-            # Wait more for key press or continue after another set interval
-            event.clearEvents()
-            keys = event.waitKeys(
-                keyList=['space'],
-                maxWait=task_struct['instruction_time_max'] - task_struct['instruction_time_min'],
-                timeStamped=True
-            )
-            if keys:
-                key, key_time = keys[0]
-                instruction_end_time = key_time
-            else:
-                instruction_end_time = core.getTime()
+            # # Wait more for key press or continue after another set interval
+            # event.clearEvents()
+            # keys = event.waitKeys(
+            #     keyList=['space'],
+            #     maxWait=task_struct['instruction_time_max'] - task_struct['instruction_time_min'],
+            #     timeStamped=True
+            # )
+            # if keys:
+            #     key, key_time = keys[0]
+            #     instruction_end_time = key_time
+            # else:
+            #     instruction_end_time = core.getTime()
             task_struct['instruction_time'][t_i] = instruction_end_time - instruction_onset
             
             if task_struct['eye_link_mode']:
@@ -321,7 +331,7 @@ def run_session(task_struct, disp_struct):
                                               color='white', units='norm',
                                               height=0.08, pos=(0.4, 0.25))    # right/top
             
-            reminder_text = visual.TextStim(win, text="Press UP to confirm your answer",
+            reminder_text = visual.TextStim(win, text="Press SPACE to confirm",
                                             color='white', units='norm', 
                                             height=0.05, pos=(0, -0.25))
             
@@ -373,7 +383,7 @@ def run_session(task_struct, disp_struct):
                     reminder_text.draw()
 
                 # Check for slider movement
-                keys = slider_resp.getKeys(keyList=['left','right','up'], waitRelease=False, clear=False)
+                keys = slider_resp.getKeys(keyList=['left','right','space'], waitRelease=False, clear=False)
                 key_names = [k.name for k in keys]
                 if 'left' in key_names:
                     # move left
@@ -387,7 +397,8 @@ def run_session(task_struct, disp_struct):
                 positions.append(marker.markerPos)
                 times.append(current_time - cue_time)
                 
-                if 'up' in key_names:
+                if 'space' in key_names: # space to submit
+
                     # submit
                     rating = marker.markerPos
                     rt = core.getTime() - cue_time
@@ -436,8 +447,13 @@ def run_session(task_struct, disp_struct):
                 current_time = core.getTime()
             
             if not response_received: # no response recorded, store NaNs
-                task_struct['resp_key'][t_i] = np.nan
-                task_struct['response_time'][t_i] = np.nan
+                rating = marker.markerPos
+                # rt = core.getTime() - cue_time
+                if rating < 0: 
+                    task_struct['resp_key'][t_i] = 1
+                elif rating > 0:
+                    task_struct['resp_key'][t_i] = 2
+                task_struct['response_time'][t_i] = np.nan # rt nan since no response
                 task_struct['slider_positions'][t_i] = {
                     'pos': np.array(positions), 
                     'time': np.array(times)}
@@ -857,10 +873,11 @@ def check_for_control_keys(task_struct, disp_struct):
     # Quit experiment immediately
     if task_struct['escape_key'] in keys:
         task_struct['complete_flag'] = 0
-        finish_experiment(task_struct, disp_struct)
-        disp_struct['win'].close()
-        core.quit()   # hard exit
-        return 'quit'  # (won't be reached but nice for clarity)
+        return 'quit'
+        # finish_experiment(task_struct, disp_struct)
+        # disp_struct['win'].close()
+        # core.quit()   # hard exit
+        # return 'quit'  # (won't be reached but nice for clarity)
 
     # Pause experiment
     if task_struct['pause_key'] in keys:
@@ -869,9 +886,10 @@ def check_for_control_keys(task_struct, disp_struct):
             keys2 = event.waitKeys(keyList=[task_struct['continue_key'], task_struct['escape_key']])
             if task_struct['escape_key'] in keys2:
                 task_struct['complete_flag'] = 0
-                finish_experiment(task_struct, disp_struct)
-                disp_struct['win'].close()
-                core.quit()
+                return 'quit'
+                # finish_experiment(task_struct, disp_struct)
+                # disp_struct['win'].close()
+                # core.quit()
             if task_struct['continue_key'] in keys2:
                 break
         event.clearEvents()

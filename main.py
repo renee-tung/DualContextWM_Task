@@ -4,6 +4,7 @@ Run this script to start the task.
 """
 
 import os
+import pdb
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -103,7 +104,7 @@ def main():
     # Run the task
     task_struct, disp_struct = run_session(task_struct, disp_struct)
     # Save data to file
-    with open(output_file.with_suffix('.pkl'), 'ab') as f:
+    with open(output_file.with_suffix('.pkl'), 'wb') as f:
         pickle.dump({'task_struct': filter_picklable(task_struct, "task_struct"), 
                      'disp_struct': filter_picklable(disp_struct, "disp_struct")}, f)
     

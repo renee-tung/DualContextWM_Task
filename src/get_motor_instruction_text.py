@@ -21,9 +21,9 @@ def get_motor_instruction_text(response_variant):
     
     # Create text
     if response_variant:
-        text = 'Move the slider to answer'
+        text = 'Slider'
     else:
-        text = 'Press the button to answer'
+        text = 'Button press'
     
     return text
 
