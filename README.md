@@ -6,6 +6,8 @@ This folder contains the PsychoPy (Python) version of the Verbal Instruction Tas
 
 The Verbal Instruction Task presents participants with visual stimuli and verbal instructions, requiring them to make decisions based on the instructions. The task supports both training and main experimental versions.
 
+11/28/25: CURRENTLY THE TRAINING VERSION IS NOT FULLY FUNCTIONAL YET
+
 ## Files
 
 ### Main Scripts
@@ -28,19 +30,12 @@ The Verbal Instruction Task presents participants with visual stimuli and verbal
 - `set_marker_ids.py` - Define TTL marker IDs
 - `open_logfile.py` - Create log files for data recording
 - `init_cedrus.py` - Initialize CEDRUS response box
+- `send_blackrock_comment.py` - Send TTL pulses to Blackrock recording system - NOT YET IMPLEMENTED
 
 ## Requirements
 
 ### Python Packages
-- `psychopy` - PsychoPy library for experimental control
-- `numpy` - Numerical operations
-- `pyserial` - Serial communication (for CEDRUS)
-- `pickle` - Data serialization (built-in)
-
-Install with:
-```bash
-pip install psychopy numpy pyserial
-```
+- Install via environment.yml file
 
 ### Hardware Support
 - **Parallel Port**: For TTL sending (requires appropriate drivers on Windows)
@@ -62,7 +57,7 @@ python main_training.py
 ## Configuration
 
 ### Debug Mode
-Set `debug = 1` in the initialization scripts to:
+Select debug = 1 when prompted to:
 - Skip TTL sending
 - Use smaller window size
 - Bypass sync tests
@@ -73,14 +68,6 @@ Set `debug = 1` in the initialization scripts to:
 
 ### EyeLink
 Set `eye_link_mode = 1` to enable eye tracking. Requires EyeLink SDK integration.
-
-## Differences from MATLAB Version
-
-1. **Data Storage**: Uses pickle files instead of .mat files
-2. **Path Handling**: Uses `pathlib.Path` for cross-platform compatibility
-3. **Window Management**: Uses PsychoPy's Window class instead of Screen('OpenWindow')
-4. **Timing**: Uses `core.getTime()` and `core.wait()` instead of `GetSecs()` and `WaitSecs()`
-5. **Stimuli**: Uses `visual.ImageStim` instead of `Screen('MakeTexture')`
 
 ## Notes
 
@@ -119,5 +106,4 @@ Each file contains:
 ## License
 
 This code built off of a task written by Tomas Aquino in PsychToolbox, found here: https://github.com/43technetium/VerbalInstructionTask
-Cursor was used to adapt this task
 

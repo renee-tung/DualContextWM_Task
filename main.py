@@ -28,6 +28,7 @@ from src.config_io import config_io
 from src.eye_link_setup import eye_link_setup
 from src.terminate_experiment import terminate_experiment
 from src.filter_picklable import filter_picklable
+from src.send_blackrock_comment import send_blackrock_comment
 
 # Set up base folder
 basefolder = Path(__file__).parent.parent#.parent
@@ -97,9 +98,13 @@ def main():
         task_struct['ret_code'] = ret_code
         task_struct['tracker'] = tracker  # Store tracker object
     
-    # First TTL
-    if not task_struct['debug']:
-        send_ttl(task_struct, 'EXPERIMENT_ON')
+    # # First TTL
+    # if not task_struct['debug']:
+    #     send_ttl(task_struct, 'EXPERIMENT_ON')
+
+    # Send Blackrock comment if enabled
+    if task_struct['blackrock_enabled']:
+        send_blackrock_comment(event="start", task="WM_verbal_instruction_task")
     
     # Run the task
     task_struct, disp_struct = run_session(task_struct, disp_struct)

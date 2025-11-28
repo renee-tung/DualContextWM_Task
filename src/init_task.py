@@ -33,15 +33,10 @@ def init_task():
     
     # Get user input
     sub_id = input('Participant number (PxxCS):\n')
+    blackrock_enabled = int(input('Blackrock comments enabled? 0=no, 1=yes:\n'))
     eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
     use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
     debug = int(input('Debug mode? 0=no, 1=yes:\n'))
-    
-    # Uncomment for quick testing:
-    # sub_id = '0'
-    # eye_link_mode = 0
-    # use_cedrus = 0
-    # debug = 1
     
     # Output folder
     output_folder = Path('..') / 'patientData' / 'taskLogs'
@@ -54,35 +49,29 @@ def init_task():
     n_trials_per_block = 48
     n_trials = n_trials_per_block * n_blocks
     
-    # Trial conditions: 1 = instruction first; 2 = instruction last (retrocue)
-    trial_conditions = np.concatenate([
-            2 * np.ones(n_trials_per_block, dtype=int),
-            np.ones(n_trials_per_block, dtype=int),
-            2 * np.ones(n_trials_per_block, dtype=int),
-            np.ones(n_trials_per_block, dtype=int),
-        ])
-    
     # Relevant axis of each trial
     category_names = ['Animals', 'Cars', 'Faces', 'Fruits']
     axis_names = [
         ['Colorful', 'Count'],
         ['New', 'Colorful'],
-        ['New', 'Identical'],
-        ['Count', 'Identical']
+        ['New', 'Geometry'],
+        ['Count', 'Geometry']
     ]
     category_and_axis = [category_names, axis_names]
     
     # Which of the two axes belonging to each category will be used in each trial
-    trial_categories = [0, 1, 2, 3]
-    trial_axis = [0, 1]
-    # anti_task = [0, 1]
-    anti_task = [0] # getting rid of the anti-task
-    prompt_variant = [0, 1]
-    equivalent_variant_id = [0, 1]
-    response_variant = [0, 1] # button choice vs slider
+    trial_categories = [0, 1, 2, 3] # 4 categories
+    trial_axis = [0, 1] # 2 axes
+    stim_pairs = [0, 1, 2] # 3 pairs of stimuli per category/axis
+    prompt_variants = [0, 1] # which prompt version to use (aspect of the axis)
+    response_variants = [0, 1] # button choice vs slider
+    cue_variants = [2, 1] # retrocue vs cue
+
+    n_categories = len(trial_categories)
+    n_response_variants = len(response_variants)
     
     # Guaranteeing a balanced distribution of each category x axis combination
-    x1, x2, x3, x4, x5, x6 = np.meshgrid(trial_categories, trial_axis, anti_task, prompt_variant, equivalent_variant_id, response_variant, indexing='ij')
+    x1, x2, x3, x4, x5, x6 = np.meshgrid(trial_categories, trial_axis, stim_pairs, prompt_variants, response_variants, cue_variants, indexing='ij')
     result = np.column_stack([x1.ravel(), x2.ravel(), x3.ravel(), x4.ravel(), x5.ravel(), x6.ravel()])
     n = result.shape[0]
     factor = n_trials // n
@@ -93,40 +82,45 @@ def init_task():
     
     # Randomize trial order
     result = np.random.permutation(result) 
+
+    retro_block1, retro_block2 = make_blocks_for_cue(result, cue_value=2, 
+                                                            n_categories=n_categories, n_response_variants=n_response_variants, 
+                                                            rng=None)
+    cue_block1, cue_block2 = make_blocks_for_cue(result, cue_value=1, 
+                                                                n_categories=n_categories, n_response_variants=n_response_variants, 
+                                                                rng=None)
+
+    sorted_idxs = np.concatenate([
+        retro_block1,  # Block 1: retrocue
+        cue_block1,    # Block 2: cue
+        retro_block2,  # Block 3: retrocue
+        cue_block2     # Block 4: cue
+    ])
+
+    # # Sort into 4 blocks by cue variant (retrocue, cue, retrocue, cue)
+    # cue_variant = result[:, 5]
+    # retrocue_idxs = np.where(cue_variant == 2)[0] # retrocue trial idxs
+    # cue_idxs = np.where(cue_variant == 1)[0] # cue trial idxs
+    # sorted_idxs = np.concatenate([retrocue_idxs[:n_trials_per_block],
+    #                             cue_idxs[:n_trials_per_block],
+    #                             retrocue_idxs[n_trials_per_block:],
+    #                             cue_idxs[n_trials_per_block:]])
+    
+    result = result[sorted_idxs]
     
     trial_categories = result[:, 0]
     trial_axis_list = result[:, 1]
-    anti_task = result[:, 2]
-    prompt_variant = result[:, 3]
-    equivalent_variant_id = result[:, 4]
-    response_variant = result[:, 5]
+    stim_pairs = result[:, 2]
+    prompt_variants = result[:, 3]
+    response_variants = result[:, 4]
+    cue_variants = result[:, 5]
     
-    # Determining which stimuli to use in each trial
-    stim_folder = Path('..') / 'stimuli' / 'Task_Stim_Version2'
+    # Getting stimuli to use in each trial
+    stim_folder = Path('..') / 'stimuli' / 'Task_Stim_New_v1'
     trial_stims = [[None, None] for _ in range(n_trials)]
-    trial_pairs = np.zeros(n_trials, dtype=int)
     stim1_position = np.full(n_trials, np.nan)
     stim2_position = np.full(n_trials, np.nan)
     break_trial = np.zeros(n_trials, dtype=int)
-
-    # Hard code number of pairs and repetitions given task time constraints
-    n_pairs = 6
-    n_repetitions = 4
-    
-    # Filling trial cells with pair numbers to be drawn from (without replacement)
-    pair_numbers = {}
-    for i in trial_axis:  # 2 axes
-        for j in trial_categories:  # 4 categories
-            pair_numbers[(i, j)] = list(range(n_pairs)) * n_repetitions  # n_pairs (0-n_pairs-1) x n_repetitions repetitions
-    
-    # Filling identical cells with identical trials to be drawn from (without replacement)
-    identical_trials = {}
-    for i, axes in enumerate(axis_names):
-        if 'Identical' in axes:
-            idx = [0] * (n_trials_per_block // 4) + [1] * (n_trials_per_block // 4)
-            random.shuffle(idx)
-            identical_trials[i] = idx
-    identical_trials_for_replacement = {k: v.copy() for k, v in identical_trials.items()}
     
     # Response prompts
     prompt_types = [random.randint(1, 2) for _ in range(n_trials)]
@@ -139,24 +133,10 @@ def init_task():
     for t_i in range(n_trials):
         axis = trial_axis_list[t_i]
         category = trial_categories[t_i]
-        
-        # Selecting one pair number from pair cell and removing it (no replacement)
-        sampled_vector = pair_numbers[(axis, category)]
-        if len(sampled_vector) == 1:
-            sampled_vector = sampled_vector * 2
-        trial_pair = random.choice(sampled_vector)
-        trial_pairs[t_i] = trial_pair
-        # Remove one occurrence
-        pair_numbers[(axis, category)].remove(trial_pair)
-        
-        # Determining if this is an identical stimulus trial in the identical axis
-        identical_trial = False
-        if axis_names[category][axis] == 'Identical':
-            if identical_trials_for_replacement[category]:
-                identical_trial = identical_trials_for_replacement[category].pop()
+        stim_pair = stim_pairs[t_i]
         
         # Loading stimuli
-        trial_folder = stim_folder / category_names[category] / f'Pair{trial_pair + 1}'
+        trial_folder = stim_folder / category_names[category] / f'Pair{stim_pair + 1}'
         folder_images = list(trial_folder.glob('*.jpg'))
         if len(folder_images) == 0:
             folder_images = list(trial_folder.glob('*.JPG'))
@@ -165,10 +145,6 @@ def init_task():
         sampled_images = random.sample(folder_images, min(2, len(folder_images)))
         trial_stims[t_i][0] = str(sampled_images[0])
         trial_stims[t_i][1] = str(sampled_images[1]) if len(sampled_images) > 1 else str(sampled_images[0])
-        
-        # Keeping first image equal to second in identical trials
-        if axis_names[category][axis] == 'Identical' and identical_trial:
-            trial_stims[t_i][1] = str(sampled_images[0])
         
         # Randomly select position of stimuli (1 = left / 2 = right / 3 = center)
         stim1_position[t_i] = 3
@@ -180,30 +156,21 @@ def init_task():
         # Instructions for task
         trial_axis_name = axis_names[category][axis]
         trial_instructions[t_i] = get_instruction_text(
-            category, trial_axis_name, anti_task[t_i],
-            prompt_variant[t_i], equivalent_variant_id[t_i]
+            category, trial_axis_name, prompt_variants[t_i]
         )
         
         # Instructions for response
         response_instructions[t_i] = get_motor_instruction_text(
-            response_variant[t_i]
+            response_variants[t_i]
         )
 
         # Response prompts
-        if trial_axis_name != 'Identical':
-            if prompt_types[t_i] == 1:
-                left_text[t_i] = 'First'
-                right_text[t_i] = 'Second'
-            else:
-                left_text[t_i] = 'Second'
-                right_text[t_i] = 'First'
+        if prompt_types[t_i] == 1:
+            left_text[t_i] = 'First'
+            right_text[t_i] = 'Second'
         else:
-            if prompt_types[t_i] == 1:
-                left_text[t_i] = 'Yes'
-                right_text[t_i] = 'No'
-            else:
-                left_text[t_i] = 'No'
-                right_text[t_i] = 'Yes'
+            left_text[t_i] = 'Second'
+            right_text[t_i] = 'First'
 
     # create time jitters
     fixations = np.random.uniform(0.9, 1.2, n_trials).round(3)
@@ -212,6 +179,7 @@ def init_task():
     # Create task struct
     task_struct = {
         'sub_id': sub_id,
+        'blackrock_enabled': bool(blackrock_enabled),
         'eye_link_mode': bool(eye_link_mode),
         'use_cedrus': bool(use_cedrus),
         'debug': bool(debug),
@@ -220,24 +188,20 @@ def init_task():
         'n_blocks': n_blocks,
         'n_trials_per_block': n_trials_per_block,
         'n_trials': n_trials,
-        'trial_conditions': trial_conditions,
+        'trial_cues': cue_variants,
         'category_names': category_names,
         'axis_names': axis_names,
         'category_and_axis': category_and_axis,
         'trial_categories': trial_categories,
         'trial_axis': trial_axis_list,
-        'anti_task': anti_task,
-        'prompt_variant': prompt_variant,
-        'equivalent_variant_id': equivalent_variant_id,
-        'response_variant': response_variant,
+        'prompt_variants': prompt_variants,
+        'response_variants': response_variants,
         'trial_instructions': trial_instructions,
         'response_instructions': response_instructions,
         'prompt_types': prompt_types,
         'stim_folder': stim_folder,
         'trial_stims': trial_stims,
-        'trial_pairs': trial_pairs,
-        'n_pairs': n_pairs,
-        'n_repetitions': n_repetitions,
+        'trial_pairs': stim_pairs,
         'stim1_position': stim1_position,
         'stim2_position': stim2_position,
         'break_trial': break_trial,
@@ -245,13 +209,13 @@ def init_task():
         'right_text': right_text,
         'fixation_time': fixations, # changed from fixed 1.0,
         'instruction_time_min': 2.0,
-        'instruction_time_max': 2.5,
+        'instruction_time_max': 2.0,
         'stim1_time': 1.0,
         'ISI': delays, # changed from fixed 0.8 or 2.0 
         'stim2_time': 1.0,
-        'response_instruction_time': 1.5,
+        'response_instruction_time': 1.0,
         'response_time_max': 3.0,
-        'text_holdout_time': 0.5,
+        'text_holdout_time': 0.3,
         'ITI': 0.0, # removing this, and making it a part of fixation
         'instruction_time': np.full(n_trials, np.nan), # time spent on instruction 1 screen
         'response_time': np.full(n_trials, np.nan), # trial RTs
@@ -369,3 +333,42 @@ def init_task():
     
     return task_struct, disp_struct
 
+
+
+def make_blocks_for_cue(result, cue_value, n_categories, n_response_variants, rng=None):
+    """
+    For a given cue_value (1 or 2), return two 48-trial blocks
+    that are balanced in (category, response_variant).
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    # All indices with this cue
+    cue_mask = (result[:, 5] == cue_value)
+    idxs = np.where(cue_mask)[0]           # length = 96
+
+    # Extract category and response_variant for those indices
+    cats  = result[idxs, 0].astype(int)    # shape (96,)
+    resps = result[idxs, 4].astype(int)    # shape (96,)
+
+    # Sort by (category, response_variant): groups become contiguous
+    order_within = np.lexsort((resps, cats))   # primary key: cats, secondary: resps
+    sorted_idxs_for_cue = idxs[order_within]
+
+    # We know there are 8 (category, resp) combos
+    n_combos = n_categories * n_response_variants      # 8
+    group_size = len(sorted_idxs_for_cue) // n_combos  # 96 / 8 = 12
+
+    # Reshape to (8 combos, 12 trials per combo)
+    grouped = sorted_idxs_for_cue.reshape(n_combos, group_size)  # (8, 12)
+
+    # First half of each row → block A, second half → block B
+    half = group_size // 2  # 6
+    blockA = grouped[:, :half].ravel()        # (8 * 6,) = (48,)
+    blockB = grouped[:, half:2*half].ravel()  # (48,)
+
+    # Shuffle within each block so categories/resp types are intermixed
+    blockA = blockA[rng.permutation(blockA.shape[0])]
+    blockB = blockB[rng.permutation(blockB.shape[0])]
+
+    return blockA, blockB

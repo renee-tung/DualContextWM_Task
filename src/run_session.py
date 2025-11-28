@@ -19,6 +19,7 @@ from src.intermission_screen import intermission_screen
 from src.get_instruction_text import get_instruction_text
 from src.get_motor_instruction_text import get_motor_instruction_text
 from src.finish_experiment import finish_experiment
+from src.send_blackrock_comment import send_blackrock_comment
 
 def run_session(task_struct, disp_struct):
     """
@@ -53,13 +54,13 @@ def run_session(task_struct, disp_struct):
                                 lineWidth=3.0, lineColor=[1.0, 1.0, 1.0])
 
     slider_line = visual.Line(win=win, name='slider_line',
-                              units='norm', start=(-0.5, 0.0), end=( 0.5, 0.0),
+                              units='norm', start=(-0.4, 0.0), end=( 0.4, 0.0),
                               lineWidth=5.0, lineColor=[-1.0, -1.0, -1.0])
 
     marker = visual.Slider(win=win, name='marker',
                            units='norm', pos=(0.0, 0.0),
                            size=(0.8, 0.08), # 80% of width, 8% of height
-                           labels=None, ticks=(-0.5, -0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5),
+                           labels=None, ticks=(-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3, 0.4),
                            granularity=0.001, style='slider', styleTweaks=('labels45',),
                            opacity=1.0, markerColor=[-1.0, -1.0, -1.0],
                            lineColor=None, labelHeight=0.05, readOnly=False)
@@ -103,7 +104,7 @@ def run_session(task_struct, disp_struct):
             return task_struct, disp_struct
         
         # Presenting pre-stim instruction (if required)
-        if task_struct['trial_conditions'][t_i] == 1:
+        if task_struct['trial_cues'][t_i] == 1:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
             # Cleaning screen
             instruction_onset = win.flip()
@@ -242,7 +243,7 @@ def run_session(task_struct, disp_struct):
             send_ttl(task_struct, 'STIMULUS_OFF')
 
         # Presenting retrocue instruction (if required)
-        if task_struct['trial_conditions'][t_i] == 2:
+        if task_struct['trial_cues'][t_i] == 2:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
             # Cleaning screen
             instruction_onset = win.flip()
@@ -320,7 +321,7 @@ def run_session(task_struct, disp_struct):
         
 
         # Getting response
-        if task_struct['response_variant'][t_i] == 1: # slider response
+        if task_struct['response_variants'][t_i] == 1: # slider response
             
             # Display words above the endpoints of the slider
             left_text_stim = visual.TextStim(win, text=task_struct['left_text'][t_i],
@@ -339,6 +340,8 @@ def run_session(task_struct, disp_struct):
             positions = []
             times = []
 
+            slider_min = -0.4
+            slider_max = 0.4
             marker_move = 0.1 # amount to move marker per key press
 
             event.clearEvents()
@@ -387,12 +390,10 @@ def run_session(task_struct, disp_struct):
                 key_names = [k.name for k in keys]
                 if 'left' in key_names:
                     # move left
-                    if (-0.5 + marker_move) <= marker.markerPos:
-                        marker.markerPos -= marker_move
+                    marker.markerPos = max(slider_min, marker.markerPos - marker_move)
                 if 'right' in key_names:
                     # move right
-                    if (0.5 - marker_move) >= marker.markerPos:
-                        marker.markerPos += marker_move
+                    marker.markerPos = min(slider_max, marker.markerPos + marker_move)
 
                 positions.append(marker.markerPos)
                 times.append(current_time - cue_time)
@@ -441,6 +442,7 @@ def run_session(task_struct, disp_struct):
                     task_struct['slider_positions'][t_i] = {
                         'pos': np.array(positions), 
                         'time': np.array(times)}
+                    
 
                     break
 
@@ -838,16 +840,14 @@ def get_instruction_text_for_trial(task_struct, t_i):
     trial_axis_name = task_struct['category_and_axis'][1][category][axis]
     return get_instruction_text(
         category, trial_axis_name,
-        task_struct['anti_task'][t_i],
-        task_struct['prompt_variant'][t_i],
-        task_struct['equivalent_variant_id'][t_i]
+        task_struct['prompt_variants'][t_i],
     )
 
 
 def get_motor_instruction_text_for_trial(task_struct, t_i):
     """Helper function to get motor instruction text for a trial. """
-    response_variant = task_struct['response_variant']
-    return get_motor_instruction_text(response_variant[t_i])
+    response_variants = task_struct['response_variants']
+    return get_motor_instruction_text(response_variants[t_i])
 
 
 def write_log_with_eyelink(task_struct, event_name, message):

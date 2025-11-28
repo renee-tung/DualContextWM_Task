@@ -8,3 +8,6 @@ dependencies:
   - pyglet=1.5.27
   - numpy=1.23.*
   - numexpr=2.8.*
+  - pip
+  - pip:
+    - requests
