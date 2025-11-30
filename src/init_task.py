@@ -32,7 +32,7 @@ def init_task():
     np.random.seed()  # Use system time as seed
     
     # Get user input
-    sub_id = input('Participant number (PxxCS):\n')
+    sub_id = input('Participant number (sub-XXX):\n')
     blackrock_enabled = int(input('Blackrock comments enabled? 0=no, 1=yes:\n'))
     eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
     use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
@@ -42,7 +42,7 @@ def init_task():
     output_folder = Path('..') / 'patientData' / 'taskLogs'
     output_folder.mkdir(parents=True, exist_ok=True)
     
-    file_name = f"{sub_id}_Sub_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
+    file_name = f"{sub_id}_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
     
     # Setting up task variables
     n_blocks = 4
@@ -107,6 +107,11 @@ def init_task():
     #                             cue_idxs[n_trials_per_block:]])
     
     result = result[sorted_idxs]
+
+    # ensure no back-to-back same (category, stim_pair) within each block
+    blocks = np.split(result, 4)
+    fixed_blocks = [avoid_back_to_back_same_stim(b) for b in blocks]
+    result = np.vstack(fixed_blocks)
     
     trial_categories = result[:, 0]
     trial_axis_list = result[:, 1]
@@ -372,3 +377,36 @@ def make_blocks_for_cue(result, cue_value, n_categories, n_response_variants, rn
     blockB = blockB[rng.permutation(blockB.shape[0])]
 
     return blockA, blockB
+
+
+def avoid_back_to_back_same_stim(block):
+    """
+    block: (N, 6) array of trials for ONE block.
+    Ensures no two consecutive trials share the same (category, stim_pair)
+    (columns 0 and 2). 
+    """
+    rng = np.random.default_rng()
+    
+    block = block.copy()
+    N = block.shape[0]
+
+    for i in range(1, N):
+        # check if current trial has same (category, stim_pair) as previous
+        if np.array_equal(block[i, [0, 2]], block[i-1, [0, 2]]):
+            curr_pair = block[i-1, [0, 2]]  # (category, stim_pair) we want to avoid
+            # find later trials whose (category, stim_pair) differ
+            future = block[i+1:, [0, 2]]    # shape (N-i-1, 2)
+            mask = np.any(future != curr_pair, axis=1)
+            candidates_rel = np.where(mask)[0]
+
+            if candidates_rel.size == 0:
+                # no safe swap found; leave as is (very unlikely)
+                continue
+
+            # pick a random candidate among the safe ones
+            j = i + 1 + rng.choice(candidates_rel)
+
+            # swap i and j
+            block[[i, j]] = block[[j, i]]
+
+    return block

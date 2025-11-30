@@ -26,32 +26,32 @@ def get_instruction_text(category, trial_axis_name, prompt_variant):
     if trial_axis_name == 'New':
         if prompt_variant: # younger/newer
             if category == 2: # faces
-                text = f'Choose the image with the younger item(s)'
+                text = f'Choose image with the younger item(s)'
             else: # cars
-                text = f'Choose the image with the newer item(s)'
+                text = f'Choose image with the newer item(s)'
         else: # older/less modern
             if category == 2: 
-                text = f'Choose the image with the older item(s)'
+                text = f'Choose image with the older item(s)'
             else:
-                text = f'Choose the image with the older item(s)'
+                text = f'Choose image with the older item(s)'
     
     elif trial_axis_name == 'Geometry':
         if prompt_variant:
-            text = f'Choose the image with the more rounded item(s)'
+            text = f'Choose image with the more rounded item(s)'
         else:
-            text = f'Choose the image with the more elongated item(s)'
+            text = f'Choose image with the more elongated item(s)'
     
     elif trial_axis_name == 'Count':
         if prompt_variant:
-            text = f'Choose the image with more items'
+            text = f'Choose image with more items'
         else:
-            text = f'Choose the image with fewer items'
+            text = f'Choose image with fewer items'
     
     elif trial_axis_name == 'Colorful':
         if prompt_variant:
-            text = f'Choose the image with the more colorful item(s)'
+            text = f'Choose image with the more colorful item(s)'
         else:
-            text = f'Choose the image with the less colorful item(s)'
+            text = f'Choose image with the less colorful item(s)'
     
     else:
         text = ''

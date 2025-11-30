@@ -1,14 +1,16 @@
 """
-Main script for verbal instruction task (PsychoPy version).
+Main script for WM verbal instruction task.
 Run this script to start the task.
 """
 
+from math import log
 import os
 import pdb
 import sys
 from datetime import datetime
 from pathlib import Path
 import pickle
+import pandas as pd
 
 from psychopy import core, visual, event
 # Optional hardware imports - only needed if TTL/EyeLink are used
@@ -32,11 +34,11 @@ from src.send_blackrock_comment import send_blackrock_comment
 
 # Set up base folder
 basefolder = Path(__file__).parent.parent#.parent
-task_code_folder = basefolder / 'WMVerbalInstructionTask' / 'src'
+task_code_folder = basefolder / 'WMInstructionTask' / 'src'
 os.chdir(task_code_folder)
 
 def main():
-    """Main function to run the verbal instruction task."""
+    """Main function to run the verbal instruction task, WM version."""
     
     # Initialize task parameters
     task_struct, disp_struct = init_task()
@@ -48,11 +50,20 @@ def main():
         pickle.dump({'task_struct': filter_picklable(task_struct, "task_struct"), 
                      'disp_struct': filter_picklable(disp_struct, "disp_struct")}, f)
     
-    # Set up TTL if not in debug mode
-    if not task_struct['debug']:
-        set_marker_ids()
-        # Configure parallel port for TTL sending
-        task_struct['parallel_port'] = config_io()
+    # Set up blackrock comments if not in debug mode and enabled
+    if not task_struct['debug'] and task_struct['blackrock_enabled']:
+        
+        # Ensure log directory exists
+        log_dir = Path("..") / "patientData" / "neuralLogs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        LOG_PATH = log_dir / f"{task_struct['sub_id']}_log.csv"
+
+        if not LOG_PATH.exists():
+            df = pd.DataFrame(columns=["emu_id", "file_string"])
+            df.to_csv(LOG_PATH, index=False)
+
+        task_struct['log_path'] = LOG_PATH
     
     # Setting up EyeLink if required
     if task_struct['eye_link_mode']:
@@ -102,9 +113,10 @@ def main():
     # if not task_struct['debug']:
     #     send_ttl(task_struct, 'EXPERIMENT_ON')
 
-    # Send Blackrock comment if enabled
+    # Send first Blackrock comment if enabled
     if task_struct['blackrock_enabled']:
-        send_blackrock_comment(event="start", task="WM_verbal_instruction_task")
+        send_blackrock_comment(event="start", task="InstrWM", 
+                               log_path=task_struct['log_path'])
     
     # Run the task
     task_struct, disp_struct = run_session(task_struct, disp_struct)

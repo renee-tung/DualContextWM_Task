@@ -4,7 +4,7 @@ This function wraps up after the session, finishing the experiment.
 
 import numpy as np
 from src.intermission_screen import intermission_screen
-from src.send_ttl import send_ttl
+# from src.send_ttl import send_ttl
 from src.set_marker_ids import *
 from src.send_blackrock_comment import send_blackrock_comment
 
@@ -19,13 +19,11 @@ def finish_experiment(task_struct, disp_struct):
     disp_struct : dict
         Display structure
     """
-    # # Final TTL
-    # if not task_struct['debug']:
-    #     send_ttl(task_struct, 'EXPERIMENT_OFF')
     
     # Send final Blackrock comment if enabled
-    if task_struct.get('blackrock_enabled', False):
-        send_blackrock_comment(event="stop", task="WM_verbal_instruction_task")
+    if task_struct['blackrock_enabled']:
+        send_blackrock_comment(event="stop", task="InstrWM", 
+                               log_path=task_struct['log_path'])
     
     # Wrapping up EyeLink file
     if task_struct['eye_link_mode']:

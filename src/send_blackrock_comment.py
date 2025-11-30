@@ -1,26 +1,45 @@
-import re
-import requests
 
-COMMENT_SERVER_URL = "http://comment-server.example.com/api/comments"
+from cbmex_utils import (
+        check_nsp_connections,
+        get_next_log_entry,
+        get_current_log_entry,
+        gensave_filename,
+        send_cbmex_comment,
+    )
 
-def send_blackrock_comment(event: str, task: str, additional_text: str = ""):
+# Output folder
+from pathlib import Path
+output_folder = Path('..') / 'patientData' / 'neuralLogs'
+output_folder.mkdir(parents=True, exist_ok=True)
+
+LOG_PATH = None # to be set in main.py
+
+def send_blackrock_comment(event: str, task: str, log_path: Path, additional_text: str = ""):
+    """Send a comment to Blackrock NSP system via CBMEX.
+    event: string like 'start', 'stim_on', 'finish', etc.
+    task:  short task name: InstrWM
+    log_path: path to the log CSV file
+    additional_text: extra info to embed in the comment (e.g. 'trial=5; axis=2')
     """
-    Sends a comment to the Blackrock comment server.
+    if not task or not event:
+        # Mirror the "No comment provided" guard, but just raise in local code
+        raise ValueError("Both 'event' and 'task' must be provided")
 
-    Args:
-        event (str): The event identifier.
-        task (str): The task identifier.
-        additional_text (str): Additional text to include in the comment.
-    """
-    payload = {
-        "event": event,
-        "task": task,
-        "additional_text": additional_text
-    }
+    check_nsp_connections()
 
-    try:
-        response = requests.post(COMMENT_SERVER_URL, json=payload, timeout=0.5)
-        if not response.ok:
-            print("Comment server error: ", response.status_code, response.text)
-    except Exception as e:
-        print(f"Failed to send comment: {e}")
+    if event == "start":
+        emu_num, subj_id, log_table = get_next_log_entry(log_path)
+        file_string = gensave_filename(log_path, log_table, emu_num, subj_id, task)
+    else:
+        emu_num, subj_id, log_table = get_current_log_entry(log_path)
+        file_string = gensave_filename(
+            log_path,
+            log_table,
+            emu_num,
+            subj_id,
+            task,
+            save_entry=False,
+        )
+
+    # This is the call that actually injects the comment into the NSP
+    send_cbmex_comment(event, file_string, additional_text)
