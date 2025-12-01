@@ -1,5 +1,5 @@
 """
-Main script for verbal instruction task training (PsychoPy version).
+Main script for WM verbal instruction task training.
 Run this script to start the training task.
 """
 
@@ -7,11 +7,19 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import pdb
+from datetime import datetime
+from pathlib import Path
+import pickle
+import pandas as pd
 
-from psychopy import core, visual, event, monitors
-from psychopy.hardware import parallel
-from psychopy.iohub import launchHubServer
-from psychopy.iohub.client import ioHubConnection
+from psychopy import core, visual, event
+
+# Optional hardware imports - only needed if TTL/EyeLink are used
+try:
+    from psychopy.hardware import parallel
+except ImportError:
+    parallel = None
 
 # Import local modules
 from src.init_task_training import init_task_training
@@ -23,10 +31,11 @@ from src.open_logfile import open_logfile
 from src.config_io import config_io
 from src.eye_link_setup import eye_link_setup
 from src.terminate_experiment import terminate_experiment
+from src.filter_picklable import filter_picklable
 
 # Set up base folder
-basefolder = Path(__file__).parent.parent.parent
-task_code_folder = basefolder / 'VerbalInstructionTask' / 'taskCode_psychopy'
+basefolder = Path(__file__).parent.parent#.parent
+task_code_folder = basefolder / 'WMInstructionTask' / 'src'
 os.chdir(task_code_folder)
 
 def main():
@@ -35,17 +44,29 @@ def main():
     # Initialize task parameters
     task_struct, disp_struct = init_task_training()
     
-    # Save initial task structure
+    # Save initial task structure (in training folder)
     output_file = task_struct['output_folder'] / task_struct['file_name']
-    import pickle
+
     with open(output_file.with_suffix('.pkl'), 'wb') as f:
-        pickle.dump({'task_struct': task_struct, 'disp_struct': disp_struct}, f)
+        pickle.dump({'task_struct': filter_picklable(task_struct), 
+                     'disp_struct': filter_picklable(disp_struct)}, f)
     
-    # Set up TTL if not in debug mode
-    if not task_struct['debug']:
-        set_marker_ids()
-        # Configure parallel port for TTL sending
-        task_struct['parallel_port'] = config_io()
+    # Set up blackrock comments if not in debug mode and enabled
+    if not task_struct['debug'] and task_struct['blackrock_enabled']:
+
+        from src.send_blackrock_comment import send_blackrock_comment
+        
+        # Ensure log directory exists
+        log_dir = Path("..") / "patientData" / "neuralLogs" / "training"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        LOG_PATH = log_dir / f"{task_struct['sub_id']}_log.csv"
+
+        if not LOG_PATH.exists():
+            df = pd.DataFrame(columns=["emu_id", "file_string"])
+            df.to_csv(LOG_PATH, index=False)
+
+        task_struct['log_path'] = LOG_PATH
     
     # Setting up EyeLink if required
     if task_struct['eye_link_mode']:
@@ -53,7 +74,7 @@ def main():
         fid_log, fname_log, timestamp_str = open_logfile(file_label)
         
         dummy_mode = 0
-        edf_filename = f"CS{timestamp_str[-6:]}"
+        edf_filename = f"B{timestamp_str[-6:]}"
         eyelink_logs_folder = task_code_folder / 'eyelinkLogs'
         eyelink_logs_folder.mkdir(exist_ok=True)
         edf_filename_local = eyelink_logs_folder / f"VERBAL_{timestamp_str}.edf"
@@ -91,16 +112,19 @@ def main():
         task_struct['ret_code'] = ret_code
         task_struct['tracker'] = tracker  # Store tracker object
     
-    # First TTL
-    if not task_struct['debug']:
-        send_ttl(task_struct, 'EXPERIMENT_ON')
+
+    # Send initial Blackrock comment if enabled
+    if not task_struct['debug'] and task_struct['blackrock_enabled']:
+        send_blackrock_comment(event="start", task="InstrWM", 
+                               log_path=task_struct['log_path'])
     
     # Run the task
     task_struct, disp_struct = run_session_training(task_struct, disp_struct)
     
     # Save data to file
-    with open(output_file.with_suffix('.pkl'), 'ab') as f:
-        pickle.dump({'task_struct': task_struct, 'disp_struct': disp_struct}, f)
+    with open(output_file.with_suffix('.pkl'), 'wb') as f:
+        pickle.dump({'task_struct': filter_picklable(task_struct, "task_struct"), 
+                     'disp_struct': filter_picklable(disp_struct, "disp_struct")}, f)
     
     # Finishing up
     finish_experiment_training(task_struct, disp_struct)

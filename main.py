@@ -30,12 +30,13 @@ from src.config_io import config_io
 from src.eye_link_setup import eye_link_setup
 from src.terminate_experiment import terminate_experiment
 from src.filter_picklable import filter_picklable
-from src.send_blackrock_comment import send_blackrock_comment
 
 # Set up base folder
 basefolder = Path(__file__).parent.parent#.parent
 task_code_folder = basefolder / 'WMInstructionTask' / 'src'
 os.chdir(task_code_folder)
+
+LOG_PATH = None ###
 
 def main():
     """Main function to run the verbal instruction task, WM version."""
@@ -52,6 +53,8 @@ def main():
     
     # Set up blackrock comments if not in debug mode and enabled
     if not task_struct['debug'] and task_struct['blackrock_enabled']:
+        
+        from src.send_blackrock_comment import send_blackrock_comment
         
         # Ensure log directory exists
         log_dir = Path("..") / "patientData" / "neuralLogs"
@@ -71,7 +74,7 @@ def main():
         fid_log, fname_log, timestamp_str = open_logfile(file_label)
         
         dummy_mode = 0  # Set to 1 to initialize in dummy mode
-        edf_filename = f"CS{timestamp_str[-6:]}"
+        edf_filename = f"B{timestamp_str[-6:]}"
         eyelink_logs_folder = task_code_folder / 'eyelinkLogs'
         eyelink_logs_folder.mkdir(exist_ok=True)
         edf_filename_local = eyelink_logs_folder / f"VERBAL_{timestamp_str}.edf"

@@ -5,7 +5,7 @@ This function wraps up after the training session, finishing the experiment.
 from src.intermission_screen import intermission_screen
 # from src.send_ttl import send_ttl
 from src.set_marker_ids import *
-from src.send_blackrock_comment import send_blackrock_comment
+import numpy as np
 
 def finish_experiment_training(task_struct, disp_struct):
     """
@@ -20,6 +20,7 @@ def finish_experiment_training(task_struct, disp_struct):
     """
     # Send final Blackrock comment if enabled
     if task_struct['blackrock_enabled']:
+        from src.send_blackrock_comment import send_blackrock_comment
         send_blackrock_comment(event="stop", task="InstrWM", 
                                log_path=task_struct['log_path'])
     
@@ -29,8 +30,17 @@ def finish_experiment_training(task_struct, disp_struct):
               f'to {task_struct.get("edf_filename_local", "N/A")}')
         write_log_with_eyelink(task_struct, 'EXPERIMENT_OFF', '')
     
-    # End of session message on screen
-    intermission_screen('End of instruction!', task_struct, disp_struct)
+    # End of tutorial message on screen
+    if 'correct_responses' in task_struct and 'resp_key' in task_struct:
+        correct = np.array(task_struct['correct_responses'])
+        resp = np.array(task_struct['resp_key'])
+        block_accuracy = 100 * np.nansum(correct == resp) / task_struct['n_trials']
+        intermission_screen(
+            f'End of tutorial! \n Your final accuracy was {block_accuracy:.1f}%',
+            task_struct, disp_struct
+        )
+    else:
+        intermission_screen('End of tutorial!', task_struct, disp_struct)
     
     # Close log file if open
     if 'fid_log' in task_struct and task_struct['fid_log']:

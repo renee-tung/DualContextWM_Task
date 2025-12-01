@@ -1,5 +1,5 @@
 
-from cbmex_utils import (
+from src.cbmex_utils import (
         check_nsp_connections,
         get_next_log_entry,
         get_current_log_entry,

@@ -13,7 +13,7 @@ from psychopy.hardware import keyboard
 from src.get_instruction_text import get_instruction_text
 from src.get_motor_instruction_text import get_motor_instruction_text
 from src.get_correct_responses import get_correct_responses
-from src.init_cedrus import init_cedrus
+from src.init_cedrus import init_cedrus # commented out - CEDRUS not used in training
 
 import pdb
 
@@ -32,7 +32,7 @@ def init_task():
     np.random.seed()  # Use system time as seed
     
     # Get user input
-    sub_id = input('Participant number (sub-XXX):\n')
+    sub_id = input('Participant number (XXX):\n')
     blackrock_enabled = int(input('Blackrock comments enabled? 0=no, 1=yes:\n'))
     eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
     use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
@@ -89,13 +89,22 @@ def init_task():
     cue_block1, cue_block2 = make_blocks_for_cue(result, cue_value=1, 
                                                                 n_categories=n_categories, n_response_variants=n_response_variants, 
                                                                 rng=None)
-
-    sorted_idxs = np.concatenate([
-        retro_block1,  # Block 1: retrocue
-        cue_block1,    # Block 2: cue
-        retro_block2,  # Block 3: retrocue
-        cue_block2     # Block 4: cue
-    ])
+    
+    # randomize which block to start with
+    if random.random() < 0.5:
+        sorted_idxs = np.concatenate([
+            retro_block1,  # Block 1: retrocue
+            cue_block1,    # Block 2: cue
+            retro_block2,  # Block 3: retrocue
+            cue_block2     # Block 4: cue
+        ])
+    else:
+        sorted_idxs = np.concatenate([
+            cue_block1,    # Block 1: cue
+            retro_block1,  # Block 2: retrocue
+            cue_block2,    # Block 3: cue
+            retro_block2   # Block 4: retrocue
+        ])
 
     # # Sort into 4 blocks by cue variant (retrocue, cue, retrocue, cue)
     # cue_variant = result[:, 5]
@@ -246,8 +255,8 @@ def init_task():
         task_struct['left_key'] = 'left'  # Left arrow key
         task_struct['right_key'] = 'right'  # Right arrow key
         task_struct['confirm_key'] = 'space' # Space to submit slider
-        task_struct['up_key'] = 'up'
-        task_struct['down_key'] = 'down'
+        task_struct['up_key'] = 'up' # Up arrow key
+        task_struct['down_key'] = 'down'  # Down arrow key
     
     task_struct['escape_key'] = 'q'
     task_struct['pause_key'] = 'p'

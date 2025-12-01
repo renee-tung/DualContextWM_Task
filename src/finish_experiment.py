@@ -6,7 +6,6 @@ import numpy as np
 from src.intermission_screen import intermission_screen
 # from src.send_ttl import send_ttl
 from src.set_marker_ids import *
-from src.send_blackrock_comment import send_blackrock_comment
 
 def finish_experiment(task_struct, disp_struct):
     """
@@ -22,6 +21,7 @@ def finish_experiment(task_struct, disp_struct):
     
     # Send final Blackrock comment if enabled
     if task_struct['blackrock_enabled']:
+        from src.send_blackrock_comment import send_blackrock_comment
         send_blackrock_comment(event="stop", task="InstrWM", 
                                log_path=task_struct['log_path'])
     

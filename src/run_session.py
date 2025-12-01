@@ -18,8 +18,6 @@ from src.set_marker_ids import *
 from src.intermission_screen import intermission_screen
 from src.get_instruction_text import get_instruction_text
 from src.get_motor_instruction_text import get_motor_instruction_text
-from src.finish_experiment import finish_experiment
-from src.send_blackrock_comment import send_blackrock_comment
 
 def run_session(task_struct, disp_struct):
     """
@@ -39,6 +37,10 @@ def run_session(task_struct, disp_struct):
     disp_struct : dict
         Updated display structure
     """
+
+    if task_struct['blackrock_enabled']:
+        from src.send_blackrock_comment import send_blackrock_comment
+
     # Making sure event buffer is empty
     event.clearEvents()
     
@@ -65,6 +67,9 @@ def run_session(task_struct, disp_struct):
                            opacity=1.0, markerColor=[-1.0, -1.0, -1.0],
                            lineColor=None, labelHeight=0.05, readOnly=False)
     
+    # save photodiode obj
+    PHOTODIODE = visual.Rect(win, fillColor='white', lineColor='white', width=240, height=240, pos=(-820, -500))
+    
     for t_i in range(task_struct['n_trials']):
         if t_i == 0:
             intermission_screen('Wait for start!', task_struct, disp_struct)
@@ -77,6 +82,11 @@ def run_session(task_struct, disp_struct):
         # Creating trial struct
         trial_struct = {}
         
+        # present photodiode
+        PHOTODIODE.autoDraw = True
+        PHOTODIODE.draw()
+        win.flip()
+
         # Presenting fixation cross
         win.flip()  # Clearing screen
         win.mouseVisible = False
@@ -361,6 +371,8 @@ def run_session(task_struct, disp_struct):
             current_time = cue_time
             response_received = False
 
+            marker_moved = 0
+
             # Set up Cedrus if used
             handle = None
             if task_struct['use_cedrus']:
@@ -386,7 +398,10 @@ def run_session(task_struct, disp_struct):
                 marker.draw()
                 divider_line.draw()
                 slider_line.draw()
-                win.flip()
+                if current_time == cue_time:
+                    trial_struct['response_on_flip'] = win.flip()
+                else:
+                    win.flip()
 
                 # Show reminder if enough time passed without confirmation
                 if (current_time - cue_time) > 2:
@@ -401,6 +416,13 @@ def run_session(task_struct, disp_struct):
                 if 'right' in key_names:
                     # move right
                     marker.markerPos = min(slider_max, marker.markerPos + marker_move)
+                
+                if marker.markerPos != 0 and marker_moved == 0:
+                    if not task_struct['debug'] and task_struct['blackrock_enabled']:
+                            send_blackrock_comment(event="annotate", task="RespWM", 
+                                                  log_path=task_struct['log_path'],
+                                                  additional_text=f"trial={t_i}; phase=slider_moved")
+                    marker_moved = 1 # confirm marker moved; don't store TTL again
 
                 positions.append(marker.markerPos)
                 times.append(current_time - cue_time)
@@ -426,7 +448,7 @@ def run_session(task_struct, disp_struct):
                         marker.draw()
                         divider_line.draw()
                         slider_line.draw()
-                        trial_struct['button_press_flip'] = win.flip()
+                        trial_struct['response_submit_flip'] = win.flip()
                         core.wait(task_struct['text_holdout_time'])
                         response_received = True
                     elif rating > 0: 
@@ -443,7 +465,7 @@ def run_session(task_struct, disp_struct):
                         marker.draw()
                         divider_line.draw()
                         slider_line.draw()
-                        trial_struct['button_press_flip'] = win.flip()
+                        trial_struct['response_submit_flip'] = win.flip()
                         core.wait(task_struct['text_holdout_time'])
                         response_received = True
                     
@@ -520,7 +542,7 @@ def run_session(task_struct, disp_struct):
             top_text_stim.draw()
             bottom_text_stim.draw()
             
-            trial_struct['stim_response_prompt_flip'] = win.flip()
+            trial_struct['response_on_flip'] = win.flip()
             
             if task_struct['eye_link_mode']:
                 write_log_with_eyelink(task_struct, 'BUTTON_ON', '')
@@ -581,7 +603,7 @@ def run_session(task_struct, disp_struct):
                             top_frame.draw()
                             bottom_frame.draw()
                             bottom_text_stim.draw()
-                            trial_struct['button_press_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = win.flip()
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -599,7 +621,7 @@ def run_session(task_struct, disp_struct):
                             bottom_frame.draw()
                             top_text_stim.draw()
                             bottom_text_stim.draw()
-                            trial_struct['button_press_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = win.flip()
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -628,7 +650,7 @@ def run_session(task_struct, disp_struct):
                             top_frame.draw()
                             bottom_frame.draw()
                             bottom_text_stim.draw()
-                            trial_struct['button_press_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = win.flip()
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -646,7 +668,7 @@ def run_session(task_struct, disp_struct):
                             bottom_frame.draw()
                             top_text_stim.draw()
                             bottom_text_stim.draw()
-                            trial_struct['button_press_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = win.flip()
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -662,6 +684,7 @@ def run_session(task_struct, disp_struct):
                                   log_path=task_struct['log_path'],
                                   additional_text=f"trial={t_i}; phase=trial_end")
         
+        PHOTODIODE.autoDraw = False
         trial_struct['response_end_flip'] = win.flip()
         # Wait for intertrial interval
         core.wait(task_struct['ITI'])
