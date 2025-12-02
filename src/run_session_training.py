@@ -2,6 +2,7 @@
 This function runs a training verbal instruction task session.
 """
 
+import pdb
 import numpy as np
 from psychopy import visual, event, core
 from psychopy.hardware import keyboard

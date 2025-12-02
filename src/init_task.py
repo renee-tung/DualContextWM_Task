@@ -334,7 +334,7 @@ def init_task():
     reward_source_rect = [-width/2 + 160, -height/2 + 0, -width/2 + 1120, -height/2 + 720]
 
     # photodiode square
-    box_size = height * 0.07
+    box_size = height * 0.04
     offset = height * 0.02  # inset margin
     # Bottom-left corner position
     box_x = -width/2 + offset + box_size/2
