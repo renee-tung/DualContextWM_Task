@@ -36,6 +36,7 @@ basefolder = Path(__file__).parent.parent#.parent
 task_code_folder = basefolder / 'WMInstructionTask' / 'src'
 os.chdir(task_code_folder)
 
+# log_dir = Path("..") / "patientData" / "neuralLogs"
 LOG_PATH = None ###
 
 def main():
@@ -56,15 +57,16 @@ def main():
         
         from src.send_blackrock_comment import send_blackrock_comment
         
-        # Ensure log directory exists
-        log_dir = Path("..") / "patientData" / "neuralLogs"
-        log_dir.mkdir(parents=True, exist_ok=True)
+        if LOG_PATH is None:
+            # Ensure log directory exists
+            log_dir = Path("..") / "patientData" / "neuralLogs"
+            log_dir.mkdir(parents=True, exist_ok=True)
 
-        LOG_PATH = log_dir / f"{task_struct['sub_id']}_log.csv"
+            LOG_PATH = log_dir / f"{task_struct['sub_id']}_log.csv"
 
-        if not LOG_PATH.exists():
-            df = pd.DataFrame(columns=["emu_id", "file_string"])
-            df.to_csv(LOG_PATH, index=False)
+            if not LOG_PATH.exists():
+                df = pd.DataFrame(columns=["emu_id", "file_string"])
+                df.to_csv(LOG_PATH, index=False)
 
         task_struct['log_path'] = LOG_PATH
     

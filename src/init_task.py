@@ -231,7 +231,6 @@ def init_task():
         'response_time_max': 3.0,
         'text_holdout_time': 0.3,
         'ITI': 0.0, # removing this, and making it a part of fixation
-        'instruction_time': np.full(n_trials, np.nan), # time spent on instruction 1 screen
         'response_time': np.full(n_trials, np.nan), # trial RTs
         'slider_positions': [None] * n_trials,
         'trial_time': np.full(n_trials, np.nan),
@@ -241,6 +240,9 @@ def init_task():
     
     # Get correct responses
     task_struct['correct_responses'] = get_correct_responses(task_struct)
+
+    # Testing the photodiode (for even debug mode or Blackrock off)
+    task_struct['photodiode_test_mode'] = True 
     
     # Setting up input devices
     if task_struct['use_cedrus']:
@@ -330,6 +332,13 @@ def init_task():
 
     # reward_source_rect (kept as pixel box relative to top-left transformed to centered coords)
     reward_source_rect = [-width/2 + 160, -height/2 + 0, -width/2 + 1120, -height/2 + 720]
+
+    # photodiode square
+    box_size = height * 0.07
+    offset = height * 0.02  # inset margin
+    # Bottom-left corner position
+    box_x = -width/2 + offset + box_size/2
+    box_y = -height/2 + offset + box_size/2
     
     disp_struct['win'] = win
     disp_struct['screen_number'] = 0
@@ -338,12 +347,14 @@ def init_task():
     disp_struct['width'] = width
     disp_struct['height'] = height
     disp_struct['stim_size'] = stim_size
-    disp_struct['rew_width'] = rew_width
-    disp_struct['rew_height'] = rew_height
-    disp_struct['reward_rect'] = horizontal_rects[2]
-    disp_struct['reward_source_rect'] = reward_source_rect
+    # disp_struct['rew_width'] = rew_width
+    # disp_struct['rew_height'] = rew_height
+    # disp_struct['reward_rect'] = horizontal_rects[2]
+    # disp_struct['reward_source_rect'] = reward_source_rect
     disp_struct['vertical_rects'] = vertical_rects
     disp_struct['horizontal_rects'] = horizontal_rects
+    disp_struct['photodiode_box'] = [box_x, box_y, box_size, box_size]
+    disp_struct['photodiode_dur'] = 0.05  # seconds
     
     return task_struct, disp_struct
 

@@ -14,6 +14,7 @@ from src.set_marker_ids import *
 from src.intermission_screen import intermission_screen
 from src.run_session import (get_motor_instruction_text_for_trial, check_for_control_keys, 
                          get_instruction_text_for_trial, write_log_with_eyelink)
+from src.photodiode_utils import PhotodiodeFlash
 
 def run_session_training(task_struct, disp_struct):
     """
@@ -63,6 +64,41 @@ def run_session_training(task_struct, disp_struct):
                            opacity=1.0, markerColor=[-1.0, -1.0, -1.0],
                            lineColor=None, labelHeight=0.05, readOnly=False)
     
+    # save photodiode obj
+    PHOTODIODE = visual.Rect(win, fillColor='white', lineColor='white', 
+                             width=disp_struct['photodiode_box'][2], height=disp_struct['photodiode_box'][3], 
+                             pos=(disp_struct['photodiode_box'][0], disp_struct['photodiode_box'][1]))
+    
+    pd_flash = PhotodiodeFlash(
+        PHOTODIODE,
+        duration=disp_struct['photodiode_dur']
+    )
+
+    def send_comment_with_pd(event, task, additional_text):
+        """
+        Send a Blackrock comment and trigger a short photodiode flash.
+        Does nothing in debug mode or if Blackrock is disabled.
+        """
+        actually_sent_blackrock = False
+
+        if task_struct['blackrock_enabled'] and not task_struct['debug']:
+            send_blackrock_comment(
+                event=event,
+                task=task,
+                log_path=task_struct['log_path'],
+                additional_text=additional_text
+            )
+            actually_sent_blackrock = True
+
+        # Photodiode flashes if sent a Blackrock comment, OR in test mode
+        if actually_sent_blackrock or task_struct['photodiode_test_mode']:
+            pd_flash.trigger()
+
+    def flip_with_pd():
+        pd_flash.update()
+        return win.flip()
+
+    
     for t_i in range(task_struct['n_trials']):
         if t_i == 0:
             intermission_screen('Tutorial: Wait for start!', task_struct, disp_struct)
@@ -86,7 +122,7 @@ def run_session_training(task_struct, disp_struct):
         trial_struct = {}
         
         # Presenting fixation cross
-        win.flip()  # Clearing screen
+        flip_with_pd()
         win.mouseVisible = False
         fixation_line1 = visual.Line(
             win,
@@ -104,18 +140,29 @@ def run_session_training(task_struct, disp_struct):
         )
         fixation_line1.draw()
         fixation_line2.draw()
-        trial_struct['fixation1_flip'] = win.flip()
-        
-        if task_struct['eye_link_mode']:
-            write_log_with_eyelink(task_struct, 'FIXATION_ON', '')
-        
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="InstrWM", 
-                                   log_path=task_struct['log_path'],
-                                   additional_text=f"trial={t_i}; phase=fixation_on")
 
-        core.wait(task_struct['fixation_time'][t_i])
+        fix_clock = core.Clock()
+        first_frame = True
 
+        while fix_clock.getTime() < task_struct['fixation_time'][t_i]:
+            fixation_line1.draw()
+            fixation_line2.draw()
+
+            if first_frame:
+                if task_struct['eye_link_mode']:
+                    write_log_with_eyelink(task_struct, 'FIXATION_ON', '')
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="InstrWM",
+                    additional_text=f"trial={t_i}; phase=fixation_on"
+                )
+
+                trial_struct['fixation1_flip'] = flip_with_pd()
+                first_frame = False
+            else:
+                flip_with_pd()
+        
         # Check control keys (escape/pause) using helper
         res = check_for_control_keys(task_struct, disp_struct)
         if res == 'quit':
@@ -124,7 +171,7 @@ def run_session_training(task_struct, disp_struct):
         # Presenting pre-stim instruction (if required)
         if task_struct['trial_cues'][t_i] == 1:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
-            win.flip()
+
             instruction_text = visual.TextStim(
                 win,
                 text=plotted_text,
@@ -132,80 +179,93 @@ def run_session_training(task_struct, disp_struct):
                 height=48,
                 wrapWidth=win.size[0] * 0.8
             )
-            instruction_text.draw()
-            trial_struct['instruction1_flip'] = win.flip()
-            
-            if task_struct['eye_link_mode']:
-                write_log_with_eyelink(task_struct, 'INSTRUCTION_ON', '')
-            
-            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                send_blackrock_comment(event="annotate", task="InstrWM", 
-                                       log_path=task_struct['log_path'],
-                                       additional_text=f"trial={t_i}; phase=instr_task_cue")
-            
-            core.wait(task_struct['instruction_time_max'])
+
+            instr_clock = core.Clock()
+            first_frame = True
+
+            while instr_clock.getTime() < task_struct['instruction_time_max']:
+                instruction_text.draw()
+
+                if first_frame:
+                    # Clear screen just before first instruction frame
+                    flip_with_pd()
+
+                    if task_struct['eye_link_mode']:
+                        write_log_with_eyelink(task_struct, 'INSTRUCTION_ON', '')
+
+                    send_comment_with_pd(
+                        event="annotate",
+                        task="InstrWM",
+                        additional_text=f"trial={t_i}; phase=instr_task_cue"
+                    )
+
+                    trial_struct['instruction1_flip'] = flip_with_pd()
+                    first_frame = False
+                else:
+                    flip_with_pd()
         
-        # Presenting first stimulus (same as main run_session)
+        # Presenting first stimulus
         stim1_position_trial = int(task_struct['stim1_position'][t_i])
         stim1_rect = disp_struct['horizontal_rects'][stim1_position_trial - 1]
-        
-        # Load and display image
+
         stim1_path = task_struct['trial_stims'][t_i][0]
         stim1_image = visual.ImageStim(
             win,
             image=stim1_path,
             pos=None,
-            size = stim1_rect[2] - stim1_rect[0],
+            size=stim1_rect[2] - stim1_rect[0],
             units="pix"
-            # size=(stim1_rect[2] - stim1_rect[0], stim1_rect[3] - stim1_rect[1])
         )
+        stim1_image.setPos(((stim1_rect[0] + stim1_rect[2]) / 2,
+                            (stim1_rect[1] + stim1_rect[3]) / 2,))
 
-        stim1_image.setPos(((stim1_rect[0] + stim1_rect[2]) / 2, (stim1_rect[1] + stim1_rect[3]) / 2,))
-        stim1_image.draw()
-        
-        trial_struct['stim1_flip'] = win.flip()
-        
-        if task_struct['eye_link_mode']:
-            write_log_with_eyelink(task_struct, 'STIMULUS_ON', '')
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="InstrWM", 
-                                   log_path=task_struct['log_path'],
-                                   additional_text=f"trial={t_i}; phase=stim1_on")
-        
-        # Wait for stimulus presentation
-        core.wait(task_struct['stim1_time'])
-        
-        # Turn off stim 1
-        trial_struct['stim1_off_flip'] = win.flip()
+        stim1_clock = core.Clock()
+        first_frame = True
+
+        while stim1_clock.getTime() < task_struct['stim1_time']:
+            stim1_image.draw()
+
+            if first_frame:
+                if task_struct['eye_link_mode']:
+                    write_log_with_eyelink(task_struct, 'STIMULUS_ON', '')
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="InstrWM",
+                    additional_text=f"trial={t_i}; phase=stim1_on"
+                )
+
+                trial_struct['stim1_flip'] = flip_with_pd()
+                first_frame = False
+            else:
+                flip_with_pd()
+
+        # Turn off stim1
+        trial_struct['stim1_off_flip'] = flip_with_pd()
+
 
         # Wait for inter-stimulus interval (with fixation cross)
-        win.flip()  # Clearing screen
-        fixation_line1 = visual.Line(
-            win,
-            start=[0, -20],
-            end=[0, 20],
-            lineColor='black',
-            lineWidth=5
-        )
-        fixation_line2 = visual.Line(
-            win,
-            start=[-20, 0],
-            end=[20, 0],
-            lineColor='black',
-            lineWidth=5
-        )
-        fixation_line1.draw()
-        fixation_line2.draw()
-        trial_struct['fixation1_flip'] = win.flip()
-        if task_struct['eye_link_mode']:
-            write_log_with_eyelink(task_struct, 'DELAY_ON', '')
-        
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="InstrWM", 
-                                   log_path=task_struct['log_path'],
-                                   additional_text=f"trial={t_i}; phase=delay_on")
-        
-        core.wait(task_struct['ISI'][t_i])
+        isi_clock = core.Clock()
+        first_frame = True
+
+        while isi_clock.getTime() < task_struct['ISI'][t_i]:
+            fixation_line1.draw()
+            fixation_line2.draw()
+
+            if first_frame:
+                if task_struct['eye_link_mode']:
+                    write_log_with_eyelink(task_struct, 'DELAY_ON', '')
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="InstrWM",
+                    additional_text=f"trial={t_i}; phase=delay_on"
+                )
+
+                trial_struct['delay_flip'] = flip_with_pd()
+                first_frame = False
+            else:
+                flip_with_pd()
         
         # Presenting second stimulus
         stim2_position_trial = int(task_struct['stim2_position'][t_i])
@@ -219,30 +279,33 @@ def run_session_training(task_struct, disp_struct):
             pos=None,
             size = stim2_rect[2] - stim2_rect[0],
             units="pix"
-            # size=(stim2_rect[2] - stim2_rect[0], stim2_rect[3] - stim2_rect[1])
         )
         stim2_image.setPos(((stim2_rect[0] + stim2_rect[2])/2, (stim2_rect[1] + stim2_rect[3])/2))
-        stim2_image.draw()
-        
-        trial_struct['stim2_flip'] = win.flip()
-        
-        if task_struct['eye_link_mode']:
-            write_log_with_eyelink(task_struct, 'STIMULUS_ON', '')
-        
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="InstrWM", 
-                                   log_path=task_struct['log_path'],
-                                   additional_text=f"trial={t_i}; phase=stim2_on")
-        
-        # Wait for stimulus presentation
-        core.wait(task_struct['stim2_time'])
-        
+
+        stim2_clock = core.Clock()
+        first_frame = True
+
+        while stim2_clock.getTime() < task_struct['stim2_time']:
+            stim2_image.draw()
+
+            if first_frame:
+                if task_struct['eye_link_mode']:
+                    write_log_with_eyelink(task_struct, 'STIMULUS_ON', '')
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="InstrWM",
+                    additional_text=f"trial={t_i}; phase=stim2_on"
+                )
+
+                trial_struct['stim2_flip'] = flip_with_pd()
+                first_frame = False
+            else:
+                flip_with_pd()
 
         # Presenting retrocue instruction (if required)
         if task_struct['trial_cues'][t_i] == 2:
             plotted_text = get_instruction_text_for_trial(task_struct, t_i)
-            # Cleaning screen
-            instruction_onset = win.flip()
             instruction_text = visual.TextStim(
                 win,
                 text=plotted_text,
@@ -250,24 +313,35 @@ def run_session_training(task_struct, disp_struct):
                 height=48,
                 wrapWidth=win.size[0] * 0.8
             )
-            instruction_text.draw()
-            trial_struct['instruction2_flip'] = win.flip()
-            
-            if task_struct['eye_link_mode']:
-                write_log_with_eyelink(task_struct, 'INSTRUCTION_ON', '')
-            
-            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                send_blackrock_comment(event="annotate", task="InstrWM", 
-                                       log_path=task_struct['log_path'],
-                                       additional_text=f"trial={t_i}; phase=instr_task_retrocue")
 
-            # Wait for fixed instruction time
-            core.wait(task_struct['instruction_time_max'])
-        
+            instr_clock = core.Clock()
+            first_frame = True
+
+            while instr_clock.getTime() < task_struct['instruction_time_max']:
+                instruction_text.draw()
+
+                if first_frame:
+                    # Clear screen just before first instruction frame
+                    flip_with_pd()
+
+                    if task_struct['eye_link_mode']:
+                        write_log_with_eyelink(task_struct, 'INSTRUCTION_ON', '')
+
+                    send_comment_with_pd(
+                        event="annotate",
+                        task="InstrWM",
+                        additional_text=f"trial={t_i}; phase=instr_task_retrocue"
+                    )
+
+                    trial_struct['instruction1_flip'] = flip_with_pd()
+                    first_frame = False
+                else:
+                    flip_with_pd()
+            
+
         # Presenting response instruction (button or slider)
         plotted_text = get_motor_instruction_text_for_trial(task_struct, t_i)
-        # Cleaning screen
-        instruction_onset = win.flip()
+        
         instruction_text = visual.TextStim(
             win,
             text=plotted_text,
@@ -275,19 +349,27 @@ def run_session_training(task_struct, disp_struct):
             height=48,
             wrapWidth=win.size[0] * 0.8
         )
-        instruction_text.draw()
-        trial_struct['responseinstruction_flip'] = win.flip()
-        
-        if task_struct['eye_link_mode']:
-            write_log_with_eyelink(task_struct, 'RESP_INSTRUCTION_ON', '')
-        
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="InstrWM", 
-                                   log_path=task_struct['log_path'],
-                                   additional_text=f"trial={t_i}; phase=instr_response")
-        
-        # Wait for at least this amount of time
-        core.wait(task_struct['response_instruction_time'])
+
+        resp_instr_clock = core.Clock()
+        first_frame = True
+
+        while resp_instr_clock.getTime() < task_struct['response_instruction_time']:
+            instruction_text.draw()
+
+            if first_frame:
+                if task_struct['eye_link_mode']:
+                    write_log_with_eyelink(task_struct, 'RESP_INSTRUCTION_ON', '')
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="InstrWM",
+                    additional_text=f"trial={t_i}; phase=instr_response"
+                )
+
+                trial_struct['responseinstruction_flip'] = flip_with_pd()
+                first_frame = False
+            else:
+                flip_with_pd()
 
 
         # Getting response
@@ -295,13 +377,9 @@ def run_session_training(task_struct, disp_struct):
             
             # Display words above the endpoints of the slider
             left_text_stim = visual.TextStim(win, text=task_struct['left_text'][t_i],
-                                            #  color='white', units='norm', 
-                                            #  height=0.08, pos=(-0.4, 0.25))   # left/top
                                             color='white', height=48, pos=(-width * 0.4 / 2, height * 0.15))   # left/top
 
             right_text_stim = visual.TextStim(win, text=task_struct['right_text'][t_i],
-                                            #   color='white', units='norm',
-                                            #   height=0.08, pos=(0.4, 0.25))    # right/top
                                             color='white', height=48, pos=(width * 0.4 / 2, height * 0.15))    # right/top
             
             reminder_text = visual.TextStim(win, text="Press SPACE to confirm",
@@ -328,6 +406,8 @@ def run_session_training(task_struct, disp_struct):
             current_time = cue_time
             response_received = False
 
+            marker_moved = 0
+
             # Set up Cedrus if used
             handle = None
             if task_struct['use_cedrus']:
@@ -338,10 +418,8 @@ def run_session_training(task_struct, disp_struct):
             if task_struct['eye_link_mode']:
                 write_log_with_eyelink(task_struct, 'SLIDER_ON', '')
             
-            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                send_blackrock_comment(event="annotate", task="RespWM", 
-                                       log_path=task_struct['log_path'],
-                                       additional_text=f"trial={t_i}; phase=slider_on")
+            send_comment_with_pd(event="annotate", task="InstrWM", 
+                                 additional_text=f"trial={t_i}; phase=slider_on")
 
             while current_time - cue_time < task_struct['response_time_max']:
                 
@@ -353,10 +431,16 @@ def run_session_training(task_struct, disp_struct):
                 marker.draw()
                 divider_line.draw()
                 slider_line.draw()
+
+                # Update photodiode status before flipping
+                pd_flash.update()
+
                 if current_time == cue_time:
-                    trial_struct['response_on_flip'] = win.flip()
+                    # trial_struct['response_on_flip'] = win.flip()
+                    trial_struct['response_on_flip'] = flip_with_pd()
                 else:
-                    win.flip()
+                    # win.flip()
+                    flip_with_pd()
 
                 # Show reminder if enough time passed without confirmation
                 if (current_time - cue_time) > 2:
@@ -371,6 +455,11 @@ def run_session_training(task_struct, disp_struct):
                 if 'right' in key_names:
                     # move right
                     marker.markerPos = min(slider_max, marker.markerPos + marker_move)
+                
+                if marker.markerPos != 0 and marker_moved == 0:
+                    send_comment_with_pd(event="annotate", task="InstrWM", 
+                                         additional_text=f"trial={t_i}; phase=slider_moved")
+                    marker_moved = 1 # confirm marker moved; don't store TTL again
 
                 positions.append(marker.markerPos)
                 times.append(current_time - cue_time)
@@ -386,34 +475,32 @@ def run_session_training(task_struct, disp_struct):
                         task_struct['resp_key'][t_i] = 1
                         if task_struct['eye_link_mode']:
                             write_log_with_eyelink(task_struct, f"RESPONSE_LEFT", "")
-                        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                            send_blackrock_comment(event="annotate", task="RespWM", 
-                                                  log_path=task_struct['log_path'],
-                                                  additional_text=f"trial={t_i}; phase=response_left")
+                        send_comment_with_pd(event="annotate", task="InstrWM", 
+                                             additional_text=f"trial={t_i}; phase=response_left")
                         left_text_stim.color = 'gray'
                         left_text_stim.draw()
                         right_text_stim.draw()
                         marker.draw()
                         divider_line.draw()
                         slider_line.draw()
-                        trial_struct['response_submit_flip'] = win.flip()
+                        # trial_struct['response_submit_flip'] = win.flip()
+                        trial_struct['response_submit_flip'] = flip_with_pd()
                         core.wait(task_struct['text_holdout_time'])
                         response_received = True
                     elif rating > 0: 
                         task_struct['resp_key'][t_i] = 2
                         if task_struct['eye_link_mode']:
                             write_log_with_eyelink(task_struct, f"RESPONSE_RIGHT", "")
-                        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                            send_blackrock_comment(event="annotate", task="RespWM", 
-                                                  log_path=task_struct['log_path'],
-                                                  additional_text=f"trial={t_i}; phase=response_right")
+                        send_comment_with_pd(event="annotate", task="InstrWM", 
+                                             additional_text=f"trial={t_i}; phase=response_right")
                         right_text_stim.color = 'gray'
                         left_text_stim.draw()
                         right_text_stim.draw()
                         marker.draw()
                         divider_line.draw()
                         slider_line.draw()
-                        trial_struct['response_submit_flip'] = win.flip()
+                        # trial_struct['response_submit_flip'] = win.flip()
+                        trial_struct['response_submit_flip'] = flip_with_pd()
                         core.wait(task_struct['text_holdout_time'])
                         response_received = True
                     
@@ -490,15 +577,15 @@ def run_session_training(task_struct, disp_struct):
             top_text_stim.draw()
             bottom_text_stim.draw()
             
-            trial_struct['response_on_flip'] = win.flip()
+            # trial_struct['response_on_flip'] = win.flip()
             
             if task_struct['eye_link_mode']:
                 write_log_with_eyelink(task_struct, 'BUTTON_ON', '')
             
-            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                send_blackrock_comment(event="annotate", task="RespWM", 
-                                      log_path=task_struct['log_path'],
-                                      additional_text=f"trial={t_i}; phase=button_on")
+            send_comment_with_pd(event="annotate", task="InstrWM", 
+                                 additional_text=f"trial={t_i}; phase=button_on")
+            
+            trial_struct['response_on_flip'] = flip_with_pd()
             
             # Redraw for next flip
             top_frame.draw()
@@ -541,17 +628,19 @@ def run_session_training(task_struct, disp_struct):
                             task_struct['resp_key'][t_i] = 1
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, 'RESPONSE_UP', '')
-                            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                                send_blackrock_comment(event="annotate", task="RespWM", 
-                                                      log_path=task_struct['log_path'],
-                                                      additional_text=f"trial={t_i}; phase=response_up")
+                            
+                            send_comment_with_pd(event="annotate", task="InstrWM", 
+                                                 additional_text=f"trial={t_i}; phase=response_up")
                             # Plotting grayed out selected text
                             top_text_stim.color = 'gray'
                             top_text_stim.draw()
                             top_frame.draw()
                             bottom_frame.draw()
                             bottom_text_stim.draw()
-                            trial_struct['response_submit_flip'] = win.flip()
+                            pd_flash.update()
+                            # trial_struct['response_submit_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = flip_with_pd()
+
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -559,17 +648,16 @@ def run_session_training(task_struct, disp_struct):
                             task_struct['resp_key'][t_i] = 2
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, 'RESPONSE_DOWN', '')
-                            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                                send_blackrock_comment(event="annotate", task="RespWM", 
-                                                      log_path=task_struct['log_path'],
-                                                      additional_text=f"trial={t_i}; phase=response_down")
+                            send_comment_with_pd(event="annotate", task="InstrWM", 
+                                                 additional_text=f"trial={t_i}; phase=response_down")
                             # Plotting grayed out selected text
                             bottom_text_stim.color = 'gray'
                             top_frame.draw()
                             bottom_frame.draw()
                             top_text_stim.draw()
                             bottom_text_stim.draw()
-                            trial_struct['response_submit_flip'] = win.flip()
+                            # trial_struct['response_submit_flip'] = win.flip()
+                            trial_struct['response_submit_flip'] = flip_with_pd()
                             core.wait(task_struct['text_holdout_time'])
                             response_received = True
                             break
@@ -578,61 +666,119 @@ def run_session_training(task_struct, disp_struct):
             else:
                 # Keyboard response (using arrow keys)
                 event.clearEvents()
-                while current_time - cue_time < task_struct['response_time_max']:
-                    
-                    keys = event.getKeys(keyList=[task_struct['up_key'], task_struct['down_key']], timeStamped=True)
+                response_received = False
+
+                # Clock for response window
+                resp_clock = core.Clock()
+                first_frame = True
+
+                while resp_clock.getTime() < task_struct['response_time_max'] and not response_received:
+                    # Draw button options every frame
+                    top_frame.draw()
+                    bottom_frame.draw()
+                    top_text_stim.draw()
+                    bottom_text_stim.draw()
+
+                    if first_frame:
+                        # First frame: log button onset + PD flash
+                        if task_struct['eye_link_mode']:
+                            write_log_with_eyelink(task_struct, 'BUTTON_ON', '')
+
+                        send_comment_with_pd(
+                            event="annotate",
+                            task="InstrWM",
+                            additional_text=f"trial={t_i}; phase=button_on"
+                        )
+
+                        trial_struct['response_on_flip'] = flip_with_pd()
+                        # Start response timing from this onset
+                        cue_time = trial_struct['response_on_flip']
+                        first_frame = False
+                    else:
+                        flip_with_pd()
+
+                    # Check for key press
+                    keys = event.getKeys(
+                        keyList=[task_struct['up_key'], task_struct['down_key']],
+                        timeStamped=True
+                    )
+
                     if keys:
                         key, time = keys[0]
                         task_struct['response_time'][t_i] = time - cue_time
-                        if key == task_struct['up_key']:
+
+                        # ---------- RESPONSE: UP (top option) ----------
+                        if key == task_struct['up_key']: # response: up
                             task_struct['resp_key'][t_i] = 1
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, 'RESPONSE_UP', '')
-                            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                                send_blackrock_comment(event="annotate", task="RespWM", 
-                                                      log_path=task_struct['log_path'],
-                                                      additional_text=f"trial={t_i}; phase=response_up")
-                            # Plotting grayed out selected text
-                            top_text_stim.color = 'gray'
-                            top_text_stim.draw()
-                            top_frame.draw()
-                            bottom_frame.draw()
-                            bottom_text_stim.draw()
-                            trial_struct['response_submit_flip'] = win.flip()
-                            core.wait(task_struct['text_holdout_time'])
+
+                            send_comment_with_pd(
+                                event="annotate",
+                                task="InstrWM",
+                                additional_text=f"trial={t_i}; phase=response_up"
+                            )
+
+                            # Hold gray-out feedback with its own loop so PD can pulse
+                            hold_clock = core.Clock()
+                            first_hold_frame = True
+                            while hold_clock.getTime() < task_struct['text_holdout_time']:
+                                top_text_stim.color = 'gray'
+                                top_text_stim.draw()
+                                top_frame.draw()
+                                bottom_frame.draw()
+                                bottom_text_stim.draw()
+
+                                if first_hold_frame:
+                                    trial_struct['response_submit_flip'] = flip_with_pd()
+                                    first_hold_frame = False
+                                else:
+                                    flip_with_pd()
+
                             response_received = True
                             break
+
+                        # ---------- RESPONSE: DOWN (bottom option) ----------
                         elif key == task_struct['down_key']:
                             task_struct['resp_key'][t_i] = 2
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, 'RESPONSE_DOWN', '')
-                            if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                                send_blackrock_comment(event="annotate", task="RespWM", 
-                                                      log_path=task_struct['log_path'],
-                                                      additional_text=f"trial={t_i}; phase=response_down")
-                            # Plotting grayed out selected text
-                            bottom_text_stim.color = 'gray'
-                            top_frame.draw()
-                            bottom_frame.draw()
-                            top_text_stim.draw()
-                            bottom_text_stim.draw()
-                            trial_struct['response_submit_flip'] = win.flip()
-                            core.wait(task_struct['text_holdout_time'])
+
+                            send_comment_with_pd(
+                                event="annotate",
+                                task="InstrWM",
+                                additional_text=f"trial={t_i}; phase=response_down"
+                            )
+
+                            # Hold gray-out feedback with its own loop so PD can pulse
+                            hold_clock = core.Clock()
+                            first_hold_frame = True
+                            while hold_clock.getTime() < task_struct['text_holdout_time']:
+                                bottom_text_stim.color = 'gray'
+                                top_frame.draw()
+                                bottom_frame.draw()
+                                top_text_stim.draw()
+                                bottom_text_stim.draw()
+
+                                if first_hold_frame:
+                                    trial_struct['response_submit_flip'] = flip_with_pd()
+                                    first_hold_frame = False
+                                else:
+                                    flip_with_pd()
+
                             response_received = True
                             break
-                    
-                    current_time = core.getTime()
 
         
         if task_struct['eye_link_mode']:
             write_log_with_eyelink(task_struct, 'TRIAL_END', '')
         
-        if not task_struct['debug'] and task_struct['blackrock_enabled']:
-            send_blackrock_comment(event="annotate", task="RespWM", 
-                                  log_path=task_struct['log_path'],
-                                  additional_text=f"trial={t_i}; phase=trial_end")
+        send_comment_with_pd(event="annotate", task="InstrWM", 
+                            additional_text=f"trial={t_i}; phase=trial_end")
         
-        trial_struct['response_end_flip'] = win.flip()
+        PHOTODIODE.autoDraw = False
+        # trial_struct['response_end_flip'] = win.flip()
+        trial_struct['response_end_flip'] = flip_with_pd()
         # Wait for intertrial interval
         core.wait(task_struct['ITI'])
         
@@ -648,16 +794,16 @@ def run_session_training(task_struct, disp_struct):
         with open(output_file.with_suffix('.pkl'), 'ab') as f:
             pickle.dump({'task_struct': task_struct}, f)
         
-        # # End of block message on screen (including accuracy in the previous block)
-        # if task_struct['break_trial'][t_i]:
-        #     block_trials = list(range(max(0, t_i - task_struct['n_trials_per_block'] + 1), t_i + 1))
-        #     correct = np.array(task_struct['correct_responses'])[block_trials]
-        #     resp = np.array(task_struct['resp_key'])[block_trials]
-        #     block_accuracy = 100 * np.nansum(correct == resp) / task_struct['n_trials_per_block']
-        #     intermission_screen(
-        #         f'End of Instruction!',
-        #         task_struct, disp_struct
-        #     )
+        # End of block message on screen (including accuracy in the previous block)
+        if task_struct['break_trial'][t_i]:
+            block_trials = list(range(max(0, t_i - task_struct['n_trials_per_block'] + 1), t_i + 1))
+            correct = np.array(task_struct['correct_responses'])[block_trials]
+            resp = np.array(task_struct['resp_key'])[block_trials]
+            block_accuracy = 100 * np.nansum(correct == resp) / task_struct['n_trials_per_block']
+            intermission_screen(
+                f'Break time! \n Your accuracy was {block_accuracy:.1f}%',
+                task_struct, disp_struct
+            )
     
     return task_struct, disp_struct
 
