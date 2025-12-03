@@ -65,6 +65,25 @@ def run_session_training(task_struct, disp_struct):
                            opacity=1.0, markerColor=[-1.0, -1.0, -1.0],
                            lineColor=None, labelHeight=0.05, readOnly=False)
     
+    # slider warmup
+    marker.reset()
+    marker.markerPos = 0.0
+    divider_line.setPos([0, 0])
+
+    slider_line.draw()
+    divider_line.draw()
+    marker.draw()
+    win.flip()         # first slider frame (does heavy init)
+    core.wait(0.05)
+    win.flip()         # clear
+    
+    # text warmup
+    dummy_text = visual.TextStim(win, text=".", color='white', height=48)
+    dummy_text.draw()
+    win.flip()
+    core.wait(0.05)
+    win.flip()
+
     # save photodiode obj
     PHOTODIODE = visual.Rect(win, fillColor='white', lineColor='white', 
                              width=disp_struct['photodiode_box'][2], height=disp_struct['photodiode_box'][3], 
@@ -160,11 +179,11 @@ def run_session_training(task_struct, disp_struct):
 
                     send_comment_with_pd(
                         event="annotate",
-                        task="InstrWM",
+                        task="DCWM", 
                         additional_text=f"trial={t_i}; phase=fixation_on"
                     )
 
-                    trial_struct['fixation1_flip'] = flip_with_pd()
+                    trial_struct['fixation_flip'] = flip_with_pd()
                     first_frame = False
                 else:
                     flip_with_pd()
@@ -201,7 +220,7 @@ def run_session_training(task_struct, disp_struct):
 
                         send_comment_with_pd(
                             event="annotate",
-                            task="InstrWM",
+                            task="DCWM", 
                             additional_text=f"trial={t_i}; phase=instr_task_cue"
                         )
 
@@ -215,13 +234,9 @@ def run_session_training(task_struct, disp_struct):
             stim1_rect = disp_struct['horizontal_rects'][stim1_position_trial - 1]
 
             stim1_path = task_struct['trial_stims'][t_i][0]
-            stim1_image = visual.ImageStim(
-                win,
-                image=stim1_path,
-                pos=None,
-                size=stim1_rect[2] - stim1_rect[0],
-                units="pix"
-            )
+            
+            stim1_image = disp_struct['image_cache'][stim1_path]
+            stim1_image.setSize(stim1_rect[2] - stim1_rect[0])
             stim1_image.setPos(((stim1_rect[0] + stim1_rect[2]) / 2,
                                 (stim1_rect[1] + stim1_rect[3]) / 2,))
 
@@ -237,7 +252,7 @@ def run_session_training(task_struct, disp_struct):
 
                     send_comment_with_pd(
                         event="annotate",
-                        task="InstrWM",
+                        task="DCWM", 
                         additional_text=f"trial={t_i}; phase=stim1_on"
                     )
 
@@ -264,7 +279,7 @@ def run_session_training(task_struct, disp_struct):
 
                     send_comment_with_pd(
                         event="annotate",
-                        task="InstrWM",
+                        task="DCWM", 
                         additional_text=f"trial={t_i}; phase=delay_on"
                     )
 
@@ -300,7 +315,7 @@ def run_session_training(task_struct, disp_struct):
 
                     send_comment_with_pd(
                         event="annotate",
-                        task="InstrWM",
+                        task="DCWM", 
                         additional_text=f"trial={t_i}; phase=stim2_on"
                     )
 
@@ -335,7 +350,7 @@ def run_session_training(task_struct, disp_struct):
 
                         send_comment_with_pd(
                             event="annotate",
-                            task="InstrWM",
+                            task="DCWM", 
                             additional_text=f"trial={t_i}; phase=instr_task_retrocue"
                         )
 
@@ -368,7 +383,7 @@ def run_session_training(task_struct, disp_struct):
 
                     send_comment_with_pd(
                         event="annotate",
-                        task="InstrWM",
+                        task="DCWM", 
                         additional_text=f"trial={t_i}; phase=instr_response"
                     )
 
@@ -379,6 +394,7 @@ def run_session_training(task_struct, disp_struct):
 
 
             # Getting response
+            slider_resp = keyboard.Keyboard()
             if task_struct['response_variants'][t_i] == 1: # slider response
                 
                 # Display words above the endpoints of the slider
@@ -405,7 +421,9 @@ def run_session_training(task_struct, disp_struct):
                 divider_line.setPos([0, 0])
                 marker.reset()
                 marker.markerPos = 0.0  # Start in middle
-                slider_resp = keyboard.Keyboard()
+                # reset slider
+                slider_resp.clock.reset()
+                slider_resp.clearEvents()
 
                 # store start times
                 cue_time = core.getTime()
@@ -424,7 +442,7 @@ def run_session_training(task_struct, disp_struct):
                 if task_struct['eye_link_mode']:
                     write_log_with_eyelink(task_struct, 'SLIDER_ON', '')
                 
-                send_comment_with_pd(event="annotate", task="InstrWM", 
+                send_comment_with_pd(event="annotate", task="DCWM",  
                                     additional_text=f"trial={t_i}; phase=slider_on")
 
                 while current_time - cue_time < task_struct['response_time_max']:
@@ -463,7 +481,7 @@ def run_session_training(task_struct, disp_struct):
                         marker.markerPos = min(slider_max, marker.markerPos + marker_move)
                     
                     if marker.markerPos != 0 and marker_moved == 0:
-                        send_comment_with_pd(event="annotate", task="InstrWM", 
+                        send_comment_with_pd(event="annotate", task="DCWM",  
                                             additional_text=f"trial={t_i}; phase=slider_moved")
                         marker_moved = 1 # confirm marker moved; don't store TTL again
 
@@ -481,7 +499,7 @@ def run_session_training(task_struct, disp_struct):
                             task_struct['resp_key'][t_i] = 1
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, f"RESPONSE_LEFT", "")
-                            send_comment_with_pd(event="annotate", task="InstrWM", 
+                            send_comment_with_pd(event="annotate", task="DCWM",  
                                                 additional_text=f"trial={t_i}; phase=response_left")
                             left_text_stim.color = 'gray'
                             left_text_stim.draw()
@@ -497,7 +515,7 @@ def run_session_training(task_struct, disp_struct):
                             task_struct['resp_key'][t_i] = 2
                             if task_struct['eye_link_mode']:
                                 write_log_with_eyelink(task_struct, f"RESPONSE_RIGHT", "")
-                            send_comment_with_pd(event="annotate", task="InstrWM", 
+                            send_comment_with_pd(event="annotate", task="DCWM",  
                                                 additional_text=f"trial={t_i}; phase=response_right")
                             right_text_stim.color = 'gray'
                             left_text_stim.draw()
@@ -588,7 +606,7 @@ def run_session_training(task_struct, disp_struct):
                 if task_struct['eye_link_mode']:
                     write_log_with_eyelink(task_struct, 'BUTTON_ON', '')
                 
-                send_comment_with_pd(event="annotate", task="InstrWM", 
+                send_comment_with_pd(event="annotate", task="DCWM",  
                                     additional_text=f"trial={t_i}; phase=button_on")
                 
                 trial_struct['response_on_flip'] = flip_with_pd()
@@ -635,7 +653,7 @@ def run_session_training(task_struct, disp_struct):
                                 if task_struct['eye_link_mode']:
                                     write_log_with_eyelink(task_struct, 'RESPONSE_UP', '')
                                 
-                                send_comment_with_pd(event="annotate", task="InstrWM", 
+                                send_comment_with_pd(event="annotate", task="DCWM",  
                                                     additional_text=f"trial={t_i}; phase=response_up")
                                 # Plotting grayed out selected text
                                 top_text_stim.color = 'gray'
@@ -654,7 +672,7 @@ def run_session_training(task_struct, disp_struct):
                                 task_struct['resp_key'][t_i] = 2
                                 if task_struct['eye_link_mode']:
                                     write_log_with_eyelink(task_struct, 'RESPONSE_DOWN', '')
-                                send_comment_with_pd(event="annotate", task="InstrWM", 
+                                send_comment_with_pd(event="annotate", task="DCWM",  
                                                     additional_text=f"trial={t_i}; phase=response_down")
                                 # Plotting grayed out selected text
                                 bottom_text_stim.color = 'gray'
@@ -692,7 +710,7 @@ def run_session_training(task_struct, disp_struct):
 
                             send_comment_with_pd(
                                 event="annotate",
-                                task="InstrWM",
+                                task="DCWM", 
                                 additional_text=f"trial={t_i}; phase=button_on"
                             )
 
@@ -721,7 +739,7 @@ def run_session_training(task_struct, disp_struct):
 
                                 send_comment_with_pd(
                                     event="annotate",
-                                    task="InstrWM",
+                                    task="DCWM", 
                                     additional_text=f"trial={t_i}; phase=response_up"
                                 )
 
@@ -752,7 +770,7 @@ def run_session_training(task_struct, disp_struct):
 
                                 send_comment_with_pd(
                                     event="annotate",
-                                    task="InstrWM",
+                                    task="DCWM", 
                                     additional_text=f"trial={t_i}; phase=response_down"
                                 )
 
@@ -779,7 +797,7 @@ def run_session_training(task_struct, disp_struct):
             if task_struct['eye_link_mode']:
                 write_log_with_eyelink(task_struct, 'TRIAL_END', '')
             
-            send_comment_with_pd(event="annotate", task="InstrWM", 
+            send_comment_with_pd(event="annotate", task="DCWM",  
                                 additional_text=f"trial={t_i}; phase=trial_end")
             
             PHOTODIODE.autoDraw = False
@@ -817,7 +835,7 @@ def run_session_training(task_struct, disp_struct):
         print(type(e), e)
 
         # send crash message to photodiode/blackrock
-        send_comment_with_pd(event="error", task="InstrWM", 
+        send_comment_with_pd(event="error", task="DCWM",  
                             additional_text=f"trial={t_i}; error={str(e)}")
 
         return task_struct, disp_struct

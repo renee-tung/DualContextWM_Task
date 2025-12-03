@@ -34,8 +34,10 @@ def init_task():
     # Get user input
     sub_id = input('Participant number (XXX):\n')
     blackrock_enabled = int(input('Blackrock comments enabled? 0=no, 1=yes:\n'))
-    eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
-    use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
+    # eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
+    eye_link_mode = 0  # Eyelink not used in this version
+    # use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))
+    use_cedrus = 0  # CEDRUS not used in training version
     debug = int(input('Debug mode? 0=no, 1=yes:\n'))
     
     # Output folder
@@ -105,15 +107,6 @@ def init_task():
             cue_block2,    # Block 3: cue
             retro_block2   # Block 4: retrocue
         ])
-
-    # # Sort into 4 blocks by cue variant (retrocue, cue, retrocue, cue)
-    # cue_variant = result[:, 5]
-    # retrocue_idxs = np.where(cue_variant == 2)[0] # retrocue trial idxs
-    # cue_idxs = np.where(cue_variant == 1)[0] # cue trial idxs
-    # sorted_idxs = np.concatenate([retrocue_idxs[:n_trials_per_block],
-    #                             cue_idxs[:n_trials_per_block],
-    #                             retrocue_idxs[n_trials_per_block:],
-    #                             cue_idxs[n_trials_per_block:]])
     
     result = result[sorted_idxs]
 
@@ -330,12 +323,9 @@ def init_task():
         [-rw/2, -rh/2, rw/2, rh/2]               # center
     ]
 
-    # reward_source_rect (kept as pixel box relative to top-left transformed to centered coords)
-    reward_source_rect = [-width/2 + 160, -height/2 + 0, -width/2 + 1120, -height/2 + 720]
-
     # photodiode square
     box_size = height * 0.04
-    offset = height * 0.02  # inset margin
+    offset = height * 0  # inset margin
     # Bottom-left corner position
     box_x = -width/2 + offset + box_size/2
     box_y = -height/2 + offset + box_size/2
@@ -347,10 +337,6 @@ def init_task():
     disp_struct['width'] = width
     disp_struct['height'] = height
     disp_struct['stim_size'] = stim_size
-    # disp_struct['rew_width'] = rew_width
-    # disp_struct['rew_height'] = rew_height
-    # disp_struct['reward_rect'] = horizontal_rects[2]
-    # disp_struct['reward_source_rect'] = reward_source_rect
     disp_struct['vertical_rects'] = vertical_rects
     disp_struct['horizontal_rects'] = horizontal_rects
     disp_struct['photodiode_box'] = [box_x, box_y, box_size, box_size]

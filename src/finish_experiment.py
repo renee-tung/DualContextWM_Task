@@ -22,7 +22,7 @@ def finish_experiment(task_struct, disp_struct):
     # Send final Blackrock comment if enabled
     if task_struct['blackrock_enabled']:
         from src.send_blackrock_comment import send_blackrock_comment
-        send_blackrock_comment(event="stop", task="InstrWM", 
+        send_blackrock_comment(event="stop", task="DCWM", 
                                log_path=task_struct['log_path'])
     
     # Wrapping up EyeLink file

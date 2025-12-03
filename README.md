@@ -1,12 +1,9 @@
-# Verbal Instruction Task - PsychoPy Conversion
-
-This folder contains the PsychoPy (Python) version of the Verbal Instruction Task, converted from the original Psychtoolbox (MATLAB) code.
+# Dual Context Working Memory (DCWM) Task
 
 ## Overview
 
-The Verbal Instruction Task presents participants with visual stimuli and verbal instructions, requiring them to make decisions based on the instructions. The task supports both training and main experimental versions.
+The Dual Context Working Memory (DCWM) Task presents participants with visual stimuli and verbal instructions about image choice and response type. Based on the instructions, participants will choose one of the images, and respond with either a button press or slider. The task supports both training and main experimental versions.
 
-11/28/25: CURRENTLY THE TRAINING VERSION IS NOT FULLY FUNCTIONAL YET
 
 ## Files
 
@@ -22,15 +19,25 @@ The Verbal Instruction Task presents participants with visual stimuli and verbal
 - `finish_experiment.py` - Clean up after main experiment
 - `finish_experiment_training.py` - Clean up after training
 
-### Helper Functions
+### Relevant Helper Functions
 - `get_instruction_text.py` - Generate instruction text based on trial parameters
+- `get_motor_instruction_text.py` - Generate response text (button/slider) based on trial parameters
 - `get_correct_responses.py` - Calculate correct responses for trials
+- `get_correct_responses_training.py` - Calculate correct responses for training trials
 - `intermission_screen.py` - Display intermission/break screens
-- `send_ttl.py` - Send TTL pulses via parallel port
-- `set_marker_ids.py` - Define TTL marker IDs
-- `open_logfile.py` - Create log files for data recording
-- `init_cedrus.py` - Initialize CEDRUS response box
-- `send_blackrock_comment.py` - Send TTL pulses to Blackrock recording system - NOT YET IMPLEMENTED
+- `send_blackrock_comment.py` - Send comments to Blackrock machine
+- `cbmex_utils.py` - Utils functions from Baylor to assist with Blackrock comments
+- `photodiode_utils.py` - Utils functions to refresh photodiode for timing
+- `filter_picklable.py` - Function for saving relevant data at the end of each trial
+
+### Stimuli
+- `Task_Stim_New_v1` - relevant folder for task stimuli
+- `Training` = relevant folder for training stimuli
+
+### Instructions
+- `DCWM_Instructions.docx` - word doc with relevant instructions for running task
+- `DCWM_Instructions.pptx` - powerpoint accompanying the word document
+- `DCWM_Task_Parameters.xlsx` - not instructions, but may be helpful to understand task blocks
 
 ## Requirements
 
@@ -38,9 +45,7 @@ The Verbal Instruction Task presents participants with visual stimuli and verbal
 - Install via environment.yml file
 
 ### Hardware Support
-- **Parallel Port**: For TTL sending (requires appropriate drivers on Windows)
-- **EyeLink**: For eye tracking (requires EyeLink SDK)
-- **CEDRUS**: For button box responses (optional)
+- **Cerebus**: For Blackrock connection (cbmex_utils)
 
 ## Usage
 
@@ -58,46 +63,23 @@ python main_training.py
 
 ### Debug Mode
 Select debug = 1 when prompted to:
-- Skip TTL sending
+- Skip Blackrock comment sending
 - Use smaller window size
 - Bypass sync tests
 
 ### Input Devices
 - **Keyboard**: Default input method (Left/Right arrow keys)
-- **CEDRUS**: Set `use_cedrus = 1` to use button box
 
-### EyeLink
-Set `eye_link_mode = 1` to enable eye tracking. Requires EyeLink SDK integration.
-
-## Notes
-
-- TTL sending requires parallel port configuration. The default address (0xCFF8) may need adjustment.
-- EyeLink integration requires the EyeLink SDK and proper setup.
-- CEDRUS button box support is implemented but may need device-specific adjustments.
-- Stimulus paths assume the same folder structure as the MATLAB version.
-
-## Troubleshooting
-
-### Parallel Port Issues
-- Check parallel port address in `send_ttl.py`
-- Ensure appropriate drivers are installed (inpout32/inpout64 on Windows)
-- Try different addresses: 0xCFF8, 0x378, 0x278
-
-### EyeLink Issues
-- Ensure EyeLink SDK is properly installed
-- Check EyeLink connection before starting experiment
-- Verify dummy mode settings if EyeLink is unavailable
-
-### CEDRUS Issues
-- Check COM port availability
-- Verify baud rate settings (default: 115200)
-- May need device-specific command protocols
 
 ## Data Output
 
 Data is saved as pickle files in:
 - Main task: `../patientData/taskLogs/`
 - Training: `../patientData/trainingLogs/`
+
+Neural data logs will be saved in: 
+- Main task: `../patientData/neuralLogs/`
+- Training: `../patientData/neuralLogs_training/`
 
 Each file contains:
 - `task_struct`: All task parameters and trial data

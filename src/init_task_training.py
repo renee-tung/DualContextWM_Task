@@ -31,7 +31,8 @@ def init_task_training():
     # Get user input
     sub_id = input('Participant number (sub-XXX):\n')
     blackrock_enabled = int(input('Blackrock comments enabled? 0=no, 1=yes:\n'))
-    eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
+    # eye_link_mode = int(input('Use Eyelink? 0=no, 1=yes:\n'))
+    eye_link_mode = 0  # Always no Eyelink
     # use_cedrus = int(input('Use CEDRUS? 0=no, 1=yes:\n'))  # Commented out - using keyboard only
     use_cedrus = 0  # Always use keyboard (arrow keys)
     debug = int(input('Debug mode? 0=no, 1=yes:\n'))
@@ -295,6 +296,20 @@ def init_task_training():
     disp_struct['horizontal_rects'] = horizontal_rects
     disp_struct['photodiode_box'] = [box_x, box_y, box_size, box_size]
     disp_struct['photodiode_dur'] = 0.05  # seconds
+
+    image_cache = {}
+    for trial_paths in task_struct['trial_stims']:
+        for stim_path in trial_paths:  # [stim1_path, stim2_path]
+            if stim_path not in image_cache:
+                image_cache[stim_path] = visual.ImageStim(
+                    win,
+                    image=stim_path,
+                    units="pix"
+                    # don't set size/pos here, we'll set those per trial
+                )
+
+    # store in task_struct or local var
+    disp_struct['image_cache'] = image_cache
     
     return task_struct, disp_struct
 

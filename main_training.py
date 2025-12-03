@@ -35,7 +35,7 @@ from src.filter_picklable import filter_picklable
 
 # Set up base folder
 basefolder = Path(__file__).parent.parent#.parent
-task_code_folder = basefolder / 'WMInstructionTask' / 'src'
+task_code_folder = basefolder / 'DualContextWM_Task' / 'src'
 os.chdir(task_code_folder)
 
 def main():
@@ -57,7 +57,7 @@ def main():
         from src.send_blackrock_comment import send_blackrock_comment
         
         # Ensure log directory exists
-        log_dir = Path("..") / "patientData" / "neuralLogs" / "training"
+        log_dir = Path("..") / "patientData" / "neuralLogs_training"
         log_dir.mkdir(parents=True, exist_ok=True)
 
         LOG_PATH = log_dir / f"{task_struct['sub_id']}_log.csv"
@@ -115,7 +115,7 @@ def main():
 
     # Send initial Blackrock comment if enabled
     if not task_struct['debug'] and task_struct['blackrock_enabled']:
-        send_blackrock_comment(event="start", task="InstrWM", 
+        send_blackrock_comment(event="start", task="DCWM", 
                                log_path=task_struct['log_path'])
     
     # Run the task
