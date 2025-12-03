@@ -68,7 +68,34 @@ def run_session(task_struct, disp_struct):
                            opacity=1.0, markerColor=[-1.0, -1.0, -1.0],
                            lineColor=None, labelHeight=0.05, readOnly=False)
     
-    # slider warm-up
+    # Pre-create keyboard object for slider
+    slider_resp = keyboard.Keyboard()
+
+    # Pre-create text objects used in slider trials
+    slider_left_text = visual.TextStim(
+        win,
+        text="",
+        color='white',
+        height=48,
+        pos=(0, 0)  # will be set per trial
+    )
+    slider_right_text = visual.TextStim(
+        win,
+        text="",
+        color='white',
+        height=48,
+        pos=(0, 0)  # will be set per trial
+    )
+    slider_reminder_text = visual.TextStim(
+        win,
+        text="Press SPACE to confirm",
+        color='white',
+        units='norm',
+        height=0.05,
+        pos=(0, -0.25)
+    )
+
+    # --- Warm-up slider & keyboard once (hidden from subject if you want) ---
     marker.reset()
     marker.markerPos = 0.0
     divider_line.setPos([0, 0])
@@ -76,17 +103,12 @@ def run_session(task_struct, disp_struct):
     slider_line.draw()
     divider_line.draw()
     marker.draw()
-    win.flip()         # first slider frame (does heavy init)
+    # draw reminder but off-screen if you want; not necessary
+    win.flip()
+    slider_resp.getKeys(clear=True)  # warm Keyboard internals
     core.wait(0.05)
-    win.flip()         # clear
+    win.flip()
 
-    # text warm-up
-    dummy_text = visual.TextStim(win, text=".", color='white', height=48)
-    dummy_text.draw()
-    win.flip()
-    core.wait(0.05)
-    win.flip()
-    
     # save photodiode obj
     PHOTODIODE = visual.Rect(win, fillColor='white', lineColor='white', 
                              width=disp_struct['photodiode_box'][2], height=disp_struct['photodiode_box'][3], 
@@ -401,50 +423,41 @@ def run_session(task_struct, disp_struct):
                     flip_with_pd()
 
 
-            # Getting response
-            slider_resp = keyboard.Keyboard()
-            if task_struct['response_variants'][t_i] == 1: # slider response
-                
-                # Display words above the endpoints of the slider
-                left_text_stim = visual.TextStim(win, text=task_struct['left_text'][t_i],
-                                                #  color='white', units='norm', 
-                                                #  height=0.08, pos=(-0.4, 0.25))   # left/top
-                                                color='white', height=48, pos=(-width * 0.4 / 2, height * 0.15))   # left/top
+            if task_struct['response_variants'][t_i] == 1:  # slider response
 
-                right_text_stim = visual.TextStim(win, text=task_struct['right_text'][t_i],
-                                                #   color='white', units='norm',
-                                                #   height=0.08, pos=(0.4, 0.25))    # right/top
-                                                color='white', height=48, pos=(width * 0.4 / 2, height * 0.15))    # right/top
-                
-                reminder_text = visual.TextStim(win, text="Press SPACE to confirm",
-                                                color='white', units='norm', 
-                                                height=0.05, pos=(0, -0.25))
-                
-                # left_pressed, right_pressed, marker_moved = 0, 0, 0
+                # Configure labels for this trial (reuse pre-made text stims)
+                slider_left_text.text = task_struct['left_text'][t_i]
+                slider_left_text.pos = (-width * 0.4 / 2, height * 0.15)
+
+                slider_right_text.text = task_struct['right_text'][t_i]
+                slider_right_text.pos = (width * 0.4 / 2, height * 0.15)
+
+                # reset colors every slider trial
+                slider_left_text.color = 'white'
+                slider_right_text.color = 'white'
+
                 positions = []
                 times = []
 
                 slider_min = -0.4
                 slider_max = 0.4
-                marker_move = 0.1 # amount to move marker per key press
+                marker_move = 0.1  # amount to move marker per key press
 
                 event.clearEvents()
-
                 divider_line.setPos([0, 0])
                 marker.reset()
                 marker.markerPos = 0.0  # Start in middle
-                # reset slider
+
+                # reset slider keyboard
                 slider_resp.clock.reset()
                 slider_resp.clearEvents()
 
-                # store start times
                 cue_time = core.getTime()
                 current_time = cue_time
                 response_received = False
-
                 marker_moved = 0
 
-                # Set up Cedrus if used
+                # Cedrus handling
                 handle = None
                 if task_struct['use_cedrus']:
                     handle = task_struct.get('handle', None)
@@ -453,38 +466,31 @@ def run_session(task_struct, disp_struct):
 
                 if task_struct['eye_link_mode']:
                     write_log_with_eyelink(task_struct, 'SLIDER_ON', '')
-                
-                # if not task_struct['debug'] and task_struct['blackrock_enabled']:
-                #     send_blackrock_comment(event="annotate", task="DCWM",  
-                #                            log_path=task_struct['log_path'],
-                #                            additional_text=f"trial={t_i}; phase=slider_on")
-                send_comment_with_pd(event="annotate", task="DCWM",  
-                                    additional_text=f"trial={t_i}; phase=slider_on")
+
+                send_comment_with_pd(
+                    event="annotate",
+                    task="DCWM",
+                    additional_text=f"trial={t_i}; phase=slider_on"
+                )
 
                 while current_time - cue_time < task_struct['response_time_max']:
-                    
-                    # Draw existing response frame
-                    left_text_stim.draw()
-                    right_text_stim.draw()
 
-                    # Draw slider
+                    # Draw frame
+                    slider_left_text.draw()
+                    slider_right_text.draw()
                     marker.draw()
                     divider_line.draw()
                     slider_line.draw()
 
-                    # Update photodiode status before flipping
-                    pd_flash.update()
+                    # draw reminder if enough time has passed with no confirmation
+                    if (current_time - cue_time) > 2.0 and not response_received:
+                        slider_reminder_text.draw()
 
+                    # First flip with pd
                     if current_time == cue_time:
-                        # trial_struct['response_on_flip'] = win.flip()
                         trial_struct['response_on_flip'] = flip_with_pd()
                     else:
-                        # win.flip()
                         flip_with_pd()
-
-                    # Show reminder if enough time passed without confirmation
-                    if (current_time - cue_time) > 2:
-                        reminder_text.draw()
 
                     # Check for slider movement
                     keys = slider_resp.getKeys(keyList=['left','right','space'], waitRelease=False, clear=False)
@@ -525,9 +531,9 @@ def run_session(task_struct, disp_struct):
                             #                           additional_text=f"trial={t_i}; phase=response_left")
                             send_comment_with_pd(event="annotate", task="DCWM",  
                                                 additional_text=f"trial={t_i}; phase=response_left")
-                            left_text_stim.color = 'gray'
-                            left_text_stim.draw()
-                            right_text_stim.draw()
+                            slider_left_text.color = 'gray'
+                            slider_left_text.draw()
+                            slider_right_text.draw()
                             marker.draw()
                             divider_line.draw()
                             slider_line.draw()
@@ -545,9 +551,10 @@ def run_session(task_struct, disp_struct):
                             #                           additional_text=f"trial={t_i}; phase=response_right")
                             send_comment_with_pd(event="annotate", task="DCWM",  
                                                 additional_text=f"trial={t_i}; phase=response_right")
-                            right_text_stim.color = 'gray'
-                            left_text_stim.draw()
-                            right_text_stim.draw()
+
+                            slider_right_text.color = 'gray'
+                            slider_right_text.draw()
+                            slider_right_text.draw()
                             marker.draw()
                             divider_line.draw()
                             slider_line.draw()
